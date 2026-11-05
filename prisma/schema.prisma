@@ -1,0 +1,567 @@
+// =====================================================================
+// KDExpress — schéma Prisma (PostgreSQL)
+// Traduction du MLD : 28 tables, 36 clés étrangères.
+//
+// Conventions
+//   - Dans le code TypeScript : noms en camelCase (idCommande, prixCatalogueAed).
+//   - Dans la base : noms du MLD en snake_case (id_commande, prix_catalogue_aed),
+//     grâce à @map (colonnes) et @@map (tables).
+//   - Les listes de valeurs (statuts, rôles…) sont des enum : TypeScript
+//     refuse une valeur qui n'est pas dans la liste.
+//   - L'argent est en Decimal, jamais en Float.
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------
+// Listes de valeurs
+// ---------------------------------------------------------------------
+
+enum RoleUtilisateur {
+  client
+  revendeur
+  fournisseur
+  agent_dubai
+  agent_bureau
+  direction
+
+  @@map("role_utilisateur")
+}
+
+enum StatutCompte {
+  actif
+  en_attente
+  suspendu
+
+  @@map("statut_compte")
+}
+
+enum RoleBoutique {
+  proprietaire
+  vendeur
+
+  @@map("role_boutique")
+}
+
+enum StatutBoutique {
+  non_inscrite
+  en_attente
+  verifiee
+  refusee
+
+  @@map("statut_boutique")
+}
+
+enum StatutProduit {
+  propose
+  publie
+  refuse
+  retire
+
+  @@map("statut_produit")
+}
+
+enum UsageCaracteristique {
+  description
+  choix_variante
+
+  @@map("usage_caracteristique")
+}
+
+enum StatutLigneCommande {
+  a_acheter
+  achetee
+  introuvable
+  remboursee
+
+  @@map("statut_ligne_commande")
+}
+
+enum StatutColis {
+  prepare
+  expedie
+  arrive
+  remis
+
+  @@map("statut_colis")
+}
+
+enum StatutLot {
+  en_preparation
+  parti
+  arrive
+
+  @@map("statut_lot")
+}
+
+enum MoyenPaiement {
+  especes
+  mobile_money
+  carte
+  avoir
+
+  @@map("moyen_paiement")
+}
+
+enum ObjetPaiement {
+  articles_transport
+  solde_retrait
+  frais_stockage
+
+  @@map("objet_paiement")
+}
+
+// ---------------------------------------------------------------------
+// 1. Comptes et boutiques
+// ---------------------------------------------------------------------
+
+model Utilisateur {
+  idUtilisateur   Int             @id @default(autoincrement()) @map("id_utilisateur")
+  nom             String          @db.VarChar(80)
+  prenom          String          @db.VarChar(80)
+  email           String          @unique @db.VarChar(254) // toujours enregistré en minuscules
+  telephone       String?         @db.VarChar(20)
+  motDePasseHash  String          @map("mot_de_passe_hash") @db.VarChar(255)
+  roleUtilisateur RoleUtilisateur @map("role_utilisateur")
+  statutCompte    StatutCompte    @default(actif) @map("statut_compte")
+  dateInscription DateTime        @default(now()) @map("date_inscription") @db.Timestamptz(6)
+
+  gestionsBoutique   GestionBoutique[]
+  commandes          Commande[]
+  achatsEffectues    AchatBoutique[]
+  colisRemis         Colis[]
+  paiementsEncaisses Paiement[]
+  operationsAvoir    OperationAvoir[]
+
+  @@map("utilisateur")
+}
+
+model Boutique {
+  idBoutique        Int            @id @default(autoincrement()) @map("id_boutique")
+  nomBoutique       String         @map("nom_boutique") @db.VarChar(120)
+  adresseBoutique   String?        @map("adresse_boutique") @db.VarChar(255)
+  telephoneBoutique String?        @map("telephone_boutique") @db.VarChar(20)
+  statutBoutique    StatutBoutique @default(non_inscrite) @map("statut_boutique")
+
+  gestionnaires  GestionBoutique[]
+  achats         AchatBoutique[]
+  offres         OffreBoutique[]
+  produitsSoumis Produit[]
+
+  @@map("boutique")
+}
+
+// Gérer : qui gère quelle boutique, et avec quel rôle
+model GestionBoutique {
+  idUtilisateur    Int          @map("id_utilisateur")
+  idBoutique       Int          @map("id_boutique")
+  roleBoutique     RoleBoutique @map("role_boutique")
+  dateRattachement DateTime     @default(now()) @map("date_rattachement") @db.Timestamptz(6)
+
+  utilisateur Utilisateur @relation(fields: [idUtilisateur], references: [idUtilisateur], onDelete: Cascade)
+  boutique    Boutique    @relation(fields: [idBoutique], references: [idBoutique], onDelete: Cascade)
+
+  @@id([idUtilisateur, idBoutique])
+  @@index([idBoutique])
+  @@map("gestion_boutique")
+}
+
+// ---------------------------------------------------------------------
+// 2. Catalogue
+// ---------------------------------------------------------------------
+
+model Categorie {
+  idCategorie      Int     @id @default(autoincrement()) @map("id_categorie")
+  nomCategorie     String  @unique @map("nom_categorie") @db.VarChar(80)
+  poidsParDefautKg Decimal @map("poids_par_defaut_kg") @db.Decimal(8, 3)
+
+  produits         Produit[]
+  caracteristiques CaracteristiqueCategorie[]
+
+  @@map("categorie")
+}
+
+model Marque {
+  idMarque  Int    @id @default(autoincrement()) @map("id_marque")
+  nomMarque String @unique @map("nom_marque") @db.VarChar(80)
+
+  produits Produit[]
+
+  @@map("marque")
+}
+
+model Caracteristique {
+  idCaracteristique  Int     @id @default(autoincrement()) @map("id_caracteristique")
+  nomCaracteristique String  @unique @map("nom_caracteristique") @db.VarChar(80)
+  uniteMesure        String? @map("unite_mesure") @db.VarChar(20)
+
+  categories CaracteristiqueCategorie[]
+  produits   CaracteristiqueProduit[]
+  variantes  CaracteristiqueVariante[]
+
+  @@map("caracteristique")
+}
+
+// Prévoir : les caractéristiques prévues pour une catégorie
+model CaracteristiqueCategorie {
+  idCategorie          Int                  @map("id_categorie")
+  idCaracteristique    Int                  @map("id_caracteristique")
+  usageCaracteristique UsageCaracteristique @map("usage_caracteristique")
+
+  categorie       Categorie       @relation(fields: [idCategorie], references: [idCategorie], onDelete: Cascade)
+  caracteristique Caracteristique @relation(fields: [idCaracteristique], references: [idCaracteristique], onDelete: Cascade)
+
+  @@id([idCategorie, idCaracteristique])
+  @@index([idCaracteristique])
+  @@map("caracteristique_categorie")
+}
+
+model Produit {
+  idProduit          Int           @id @default(autoincrement()) @map("id_produit")
+  nomProduit         String        @map("nom_produit") @db.VarChar(150)
+  descriptionProduit String?       @map("description_produit") @db.Text
+  statutProduit      StatutProduit @default(propose) @map("statut_produit")
+  idCategorie        Int           @map("id_categorie")
+  idMarque           Int?          @map("id_marque")
+  idBoutiqueOrigine  Int?          @map("id_boutique_origine")
+
+  categorie       Categorie @relation(fields: [idCategorie], references: [idCategorie], onDelete: Restrict)
+  marque          Marque?   @relation(fields: [idMarque], references: [idMarque], onDelete: Restrict)
+  boutiqueOrigine Boutique? @relation(fields: [idBoutiqueOrigine], references: [idBoutique], onDelete: SetNull)
+
+  photos           PhotoProduit[]
+  variantes        Variante[]
+  caracteristiques CaracteristiqueProduit[]
+
+  @@index([idCategorie])
+  @@index([idMarque])
+  @@index([idBoutiqueOrigine])
+  @@map("produit")
+}
+
+model PhotoProduit {
+  idPhotoProduit      Int    @id @default(autoincrement()) @map("id_photo_produit")
+  fichierPhotoProduit String @map("fichier_photo_produit") @db.VarChar(500)
+  ordreAffichage      Int    @default(1) @map("ordre_affichage") @db.SmallInt
+  idProduit           Int    @map("id_produit")
+
+  produit Produit @relation(fields: [idProduit], references: [idProduit], onDelete: Cascade)
+
+  @@unique([idProduit, ordreAffichage])
+  @@map("photo_produit")
+}
+
+// Décrire : la valeur d'une caractéristique pour un produit
+model CaracteristiqueProduit {
+  idProduit         Int    @map("id_produit")
+  idCaracteristique Int    @map("id_caracteristique")
+  valeur            String @db.VarChar(120)
+
+  produit         Produit         @relation(fields: [idProduit], references: [idProduit], onDelete: Cascade)
+  caracteristique Caracteristique @relation(fields: [idCaracteristique], references: [idCaracteristique], onDelete: Restrict)
+
+  @@id([idProduit, idCaracteristique])
+  @@index([idCaracteristique])
+  @@map("caracteristique_produit")
+}
+
+model Variante {
+  idVariante       Int     @id @default(autoincrement()) @map("id_variante")
+  libelleVariante  String  @default("Standard") @map("libelle_variante") @db.VarChar(120)
+  prixCatalogueAed Decimal @map("prix_catalogue_aed") @db.Decimal(12, 2)
+  poidsEstimeKg    Decimal @map("poids_estime_kg") @db.Decimal(8, 3)
+  estEnVente       Boolean @default(true) @map("est_en_vente")
+  idProduit        Int     @map("id_produit")
+
+  produit Produit @relation(fields: [idProduit], references: [idProduit], onDelete: Restrict)
+
+  paliers          PalierPrix[]
+  caracteristiques CaracteristiqueVariante[]
+  offres           OffreBoutique[]
+  lignesCommande   LigneCommande[]
+
+  @@unique([idProduit, libelleVariante])
+  @@map("variante")
+}
+
+// Tarifer : prix dégressif (« 240 AED dès 12 »)
+model PalierPrix {
+  idPalierPrix    Int     @id @default(autoincrement()) @map("id_palier_prix")
+  quantiteMinimum Int     @map("quantite_minimum")
+  prixPalierAed   Decimal @map("prix_palier_aed") @db.Decimal(12, 2)
+  idVariante      Int     @map("id_variante")
+
+  variante Variante @relation(fields: [idVariante], references: [idVariante], onDelete: Cascade)
+
+  @@unique([idVariante, quantiteMinimum])
+  @@map("palier_prix")
+}
+
+// Distinguer : la valeur d'une caractéristique pour une variante
+model CaracteristiqueVariante {
+  idVariante        Int    @map("id_variante")
+  idCaracteristique Int    @map("id_caracteristique")
+  valeur            String @db.VarChar(120)
+
+  variante        Variante        @relation(fields: [idVariante], references: [idVariante], onDelete: Cascade)
+  caracteristique Caracteristique @relation(fields: [idCaracteristique], references: [idCaracteristique], onDelete: Restrict)
+
+  @@id([idVariante, idCaracteristique])
+  @@index([idCaracteristique])
+  @@map("caracteristique_variante")
+}
+
+// Proposer : le prix d'une variante dans une boutique
+model OffreBoutique {
+  idBoutique      Int      @map("id_boutique")
+  idVariante      Int      @map("id_variante")
+  prixBoutiqueAed Decimal  @map("prix_boutique_aed") @db.Decimal(12, 2)
+  estDisponible   Boolean  @default(true) @map("est_disponible")
+  dateMiseAJour   DateTime @default(now()) @updatedAt @map("date_mise_a_jour") @db.Timestamptz(6)
+
+  boutique Boutique @relation(fields: [idBoutique], references: [idBoutique], onDelete: Cascade)
+  variante Variante @relation(fields: [idVariante], references: [idVariante], onDelete: Cascade)
+
+  @@id([idBoutique, idVariante])
+  @@index([idVariante])
+  @@map("offre_boutique")
+}
+
+// ---------------------------------------------------------------------
+// 3. Commandes et achats
+// ---------------------------------------------------------------------
+
+model Commande {
+  idCommande        Int      @id @default(autoincrement()) @map("id_commande")
+  numeroCommande    String   @unique @map("numero_commande") @db.VarChar(20) // ex. KD-2026-000123
+  dateCommande      DateTime @default(now()) @map("date_commande") @db.Timestamptz(6)
+  tauxChangeAedUsd  Decimal  @map("taux_change_aed_usd") @db.Decimal(12, 6)
+  fraisTransportUsd Decimal  @default(0) @map("frais_transport_usd") @db.Decimal(12, 2)
+  fraisServiceUsd   Decimal  @default(0) @map("frais_service_usd") @db.Decimal(12, 2)
+  codeRetrait       String   @unique @map("code_retrait") @db.VarChar(12)
+  idClient          Int      @map("id_client")
+
+  client Utilisateur @relation(fields: [idClient], references: [idUtilisateur], onDelete: Restrict)
+
+  lignes          LigneCommande[]
+  colis           Colis[]
+  paiements       Paiement[]
+  operationsAvoir OperationAvoir[]
+  historique      HistoriqueCommande[]
+  avis            AvisService?
+
+  @@index([idClient])
+  @@map("commande")
+}
+
+model AchatBoutique {
+  idAchatBoutique     Int      @id @default(autoincrement()) @map("id_achat_boutique")
+  dateAchat           DateTime @default(now()) @map("date_achat") @db.Timestamptz(6)
+  estConfirmeBoutique Boolean  @default(false) @map("est_confirme_boutique")
+  idAgentAchat        Int      @map("id_agent_achat")
+  idBoutique          Int      @map("id_boutique")
+
+  agentAchat Utilisateur @relation(fields: [idAgentAchat], references: [idUtilisateur], onDelete: Restrict)
+  boutique   Boutique    @relation(fields: [idBoutique], references: [idBoutique], onDelete: Restrict)
+
+  lignes LigneCommande[]
+
+  @@index([idAgentAchat])
+  @@index([idBoutique])
+  @@map("achat_boutique")
+}
+
+model LigneCommande {
+  idLigneCommande     Int                 @id @default(autoincrement()) @map("id_ligne_commande")
+  quantite            Int
+  prixUnitaireAed     Decimal             @map("prix_unitaire_aed") @db.Decimal(12, 2) // figé à la commande
+  poidsUnitaireKg     Decimal             @map("poids_unitaire_kg") @db.Decimal(8, 3) // figé à la commande
+  prixAchatReelAed    Decimal?            @map("prix_achat_reel_aed") @db.Decimal(12, 2)
+  statutLigneCommande StatutLigneCommande @default(a_acheter) @map("statut_ligne_commande")
+  idCommande          Int                 @map("id_commande")
+  idVariante          Int                 @map("id_variante")
+  idAchatBoutique     Int?                @map("id_achat_boutique")
+
+  commande      Commande       @relation(fields: [idCommande], references: [idCommande], onDelete: Restrict)
+  variante      Variante       @relation(fields: [idVariante], references: [idVariante], onDelete: Restrict)
+  achatBoutique AchatBoutique? @relation(fields: [idAchatBoutique], references: [idAchatBoutique], onDelete: Restrict)
+
+  contenuColis ContenuColis[]
+
+  @@index([idCommande])
+  @@index([idVariante])
+  @@index([idAchatBoutique])
+  @@map("ligne_commande")
+}
+
+// ---------------------------------------------------------------------
+// 4. Logistique
+// ---------------------------------------------------------------------
+
+model AgenceTransport {
+  idAgenceTransport Int      @id @default(autoincrement()) @map("id_agence_transport")
+  nomAgence         String   @unique @map("nom_agence") @db.VarChar(120)
+  telephoneAgence   String?  @map("telephone_agence") @db.VarChar(20)
+  tarifKgUsd        Decimal? @map("tarif_kg_usd") @db.Decimal(12, 2)
+
+  lots LotExpedition[]
+
+  @@map("agence_transport")
+}
+
+model LotExpedition {
+  idLotExpedition   Int       @id @default(autoincrement()) @map("id_lot_expedition")
+  referenceLot      String    @unique @map("reference_lot") @db.VarChar(30)
+  dateDepart        DateTime? @map("date_depart") @db.Date
+  dateArrivee       DateTime? @map("date_arrivee") @db.Date
+  poidsFactureKg    Decimal?  @map("poids_facture_kg") @db.Decimal(8, 3)
+  coutFactureUsd    Decimal?  @map("cout_facture_usd") @db.Decimal(12, 2)
+  statutLot         StatutLot @default(en_preparation) @map("statut_lot")
+  idAgenceTransport Int       @map("id_agence_transport")
+
+  agence AgenceTransport @relation(fields: [idAgenceTransport], references: [idAgenceTransport], onDelete: Restrict)
+
+  colis Colis[]
+
+  @@index([idAgenceTransport])
+  @@map("lot_expedition")
+}
+
+model Colis {
+  idColis         Int         @id @default(autoincrement()) @map("id_colis")
+  poidsReelKg     Decimal?    @map("poids_reel_kg") @db.Decimal(8, 3)
+  datePreparation DateTime    @default(now()) @map("date_preparation") @db.Timestamptz(6)
+  statutColis     StatutColis @default(prepare) @map("statut_colis")
+  dateRemise      DateTime?   @map("date_remise") @db.Timestamptz(6)
+  idCommande      Int         @map("id_commande")
+  idLotExpedition Int?        @map("id_lot_expedition")
+  idAgentRemise   Int?        @map("id_agent_remise")
+
+  commande      Commande       @relation(fields: [idCommande], references: [idCommande], onDelete: Restrict)
+  lotExpedition LotExpedition? @relation(fields: [idLotExpedition], references: [idLotExpedition], onDelete: Restrict)
+  agentRemise   Utilisateur?   @relation(fields: [idAgentRemise], references: [idUtilisateur], onDelete: Restrict)
+
+  contenu ContenuColis[]
+  photos  PhotoColis[]
+
+  @@index([idCommande])
+  @@index([idLotExpedition])
+  @@index([idAgentRemise])
+  @@map("colis")
+}
+
+// Emballer : quelles lignes, en quelle quantité, dans quel colis
+model ContenuColis {
+  idColis          Int @map("id_colis")
+  idLigneCommande  Int @map("id_ligne_commande")
+  quantiteEmballee Int @map("quantite_emballee")
+
+  colis         Colis         @relation(fields: [idColis], references: [idColis], onDelete: Cascade)
+  ligneCommande LigneCommande @relation(fields: [idLigneCommande], references: [idLigneCommande], onDelete: Restrict)
+
+  @@id([idColis, idLigneCommande])
+  @@index([idLigneCommande])
+  @@map("contenu_colis")
+}
+
+model PhotoColis {
+  idPhotoColis      Int      @id @default(autoincrement()) @map("id_photo_colis")
+  fichierPhotoColis String   @map("fichier_photo_colis") @db.VarChar(500)
+  datePhotoColis    DateTime @default(now()) @map("date_photo_colis") @db.Timestamptz(6)
+  idColis           Int      @map("id_colis")
+
+  colis Colis @relation(fields: [idColis], references: [idColis], onDelete: Cascade)
+
+  @@index([idColis])
+  @@map("photo_colis")
+}
+
+// ---------------------------------------------------------------------
+// 5. Argent, suivi et réglages
+// ---------------------------------------------------------------------
+
+model Paiement {
+  idPaiement          Int           @id @default(autoincrement()) @map("id_paiement")
+  montantPayeUsd      Decimal       @map("montant_paye_usd") @db.Decimal(12, 2)
+  moyenPaiement       MoyenPaiement @map("moyen_paiement")
+  objetPaiement       ObjetPaiement @map("objet_paiement")
+  referencePaiement   String?       @map("reference_paiement") @db.VarChar(100)
+  datePaiement        DateTime      @default(now()) @map("date_paiement") @db.Timestamptz(6)
+  idCommande          Int           @map("id_commande")
+  idAgentEncaissement Int?          @map("id_agent_encaissement")
+
+  commande          Commande     @relation(fields: [idCommande], references: [idCommande], onDelete: Restrict)
+  agentEncaissement Utilisateur? @relation(fields: [idAgentEncaissement], references: [idUtilisateur], onDelete: Restrict)
+
+  @@index([idCommande])
+  @@index([idAgentEncaissement])
+  @@map("paiement")
+}
+
+model OperationAvoir {
+  idOperationAvoir Int      @id @default(autoincrement()) @map("id_operation_avoir")
+  montantUsd       Decimal  @map("montant_usd") @db.Decimal(12, 2) // + crédit, − débit
+  motifOperation   String   @map("motif_operation") @db.VarChar(255)
+  dateOperation    DateTime @default(now()) @map("date_operation") @db.Timestamptz(6)
+  idClient         Int      @map("id_client")
+  idCommande       Int?     @map("id_commande")
+
+  client   Utilisateur @relation(fields: [idClient], references: [idUtilisateur], onDelete: Restrict)
+  commande Commande?   @relation(fields: [idCommande], references: [idCommande], onDelete: Restrict)
+
+  @@index([idClient])
+  @@index([idCommande])
+  @@map("operation_avoir")
+}
+
+model EtapeCommande {
+  idEtapeCommande Int    @id @default(autoincrement()) @map("id_etape_commande")
+  libelleEtape    String @unique @map("libelle_etape") @db.VarChar(60)
+  ordreEtape      Int    @unique @map("ordre_etape") @db.SmallInt
+
+  historique HistoriqueCommande[]
+
+  @@map("etape_commande")
+}
+
+// Franchir : les étapes franchies par une commande
+model HistoriqueCommande {
+  idCommande         Int      @map("id_commande")
+  idEtapeCommande    Int      @map("id_etape_commande")
+  dateFranchissement DateTime @default(now()) @map("date_franchissement") @db.Timestamptz(6)
+  commentaireEtape   String?  @map("commentaire_etape") @db.VarChar(500)
+
+  commande Commande      @relation(fields: [idCommande], references: [idCommande], onDelete: Restrict)
+  etape    EtapeCommande @relation(fields: [idEtapeCommande], references: [idEtapeCommande], onDelete: Restrict)
+
+  @@id([idCommande, idEtapeCommande])
+  @@index([idEtapeCommande])
+  @@map("historique_commande")
+}
+
+model AvisService {
+  idAvisService   Int      @id @default(autoincrement()) @map("id_avis_service")
+  noteSur5        Int      @map("note_sur_5") @db.SmallInt
+  commentaireAvis String?  @map("commentaire_avis") @db.VarChar(1000)
+  dateAvis        DateTime @default(now()) @map("date_avis") @db.Timestamptz(6)
+  idCommande      Int      @unique @map("id_commande")
+
+  commande Commande @relation(fields: [idCommande], references: [idCommande], onDelete: Restrict)
+
+  @@map("avis_service")
+}
+
+model Parametre {
+  codeParametre    String @id @map("code_parametre") @db.VarChar(50)
+  valeurParametre  String @map("valeur_parametre") @db.VarChar(255)
+  libelleParametre String @map("libelle_parametre") @db.VarChar(255)
+
+  @@map("parametre")
+}
