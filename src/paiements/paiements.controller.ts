@@ -9,14 +9,15 @@ import { PaiementsService } from './paiements.service.js';
 export class PaiementsController {
   constructor(private readonly paiementsService: PaiementsService) {}
 
-  // POST /commandes/:id/paiements : le personnel du bureau enregistre un paiement reçu
-  @Roles('agent_bureau', 'direction')
+  // POST /commandes/:id/paiements : le bureau enregistre un paiement reçu ;
+  // un client peut aussi payer SA commande avec son avoir
+  @Roles('agent_bureau', 'direction', 'client', 'revendeur')
   @Post(':id/paiements')
   enregistrer(
     @Param('id', ParseIntPipe) idCommande: number,
     @Body() dto: EnregistrerPaiementDto,
-    @Utilisateur() agent: UtilisateurConnecte,
+    @Utilisateur() utilisateur: UtilisateurConnecte,
   ) {
-    return this.paiementsService.enregistrer(idCommande, dto, agent);
+    return this.paiementsService.enregistrer(idCommande, dto, utilisateur);
   }
 }
