@@ -14,7 +14,7 @@ En développement.
 | Catalogue en lecture                           | Fait    |
 | Authentification et rôles                      | Fait    |
 | Panier et commandes                            | Fait    |
-| Paiements et avoirs                            | À faire |
+| Paiements et avoirs                            | Fait    |
 | Achats à Dubaï, expédition, retrait            | À faire |
 
 ## Technologies
@@ -75,25 +75,37 @@ Une inscription crée toujours un `client` ; les autres comptes sont créés par
 
 ## Routes disponibles
 
-| Méthode | Route                                      | Accès                                | Rôle                                                                  |
-| ------- | ------------------------------------------ | ------------------------------------ | --------------------------------------------------------------------- |
-| GET     | `/catalogue/categories`                    | public                               | Liste des catégories                                                  |
-| GET     | `/catalogue/produits?categorie=1&marque=2` | public                               | Produits publiés, filtres facultatifs                                 |
-| GET     | `/catalogue/produits/:id`                  | public                               | Détail d'un produit : variantes, options, paliers de prix             |
-| POST    | `/auth/inscription`                        | public                               | Créer un compte client                                                |
-| POST    | `/auth/connexion`                          | public                               | Se connecter, reçoit un jeton JWT                                     |
-| GET     | `/auth/moi`                                | connecté                             | Profil de l'utilisateur connecté                                      |
-| GET     | `/utilisateurs?role=agent_dubai`           | direction                            | Liste des comptes, filtre facultatif                                  |
-| POST    | `/utilisateurs`                            | direction                            | Créer un compte avec un rôle                                          |
-| PATCH   | `/utilisateurs/:id/statut`                 | direction                            | Activer, mettre en attente ou suspendre un compte                     |
-| POST    | `/commandes/devis`                         | public                               | Chiffrer un panier (paliers, transport, frais), sans rien enregistrer |
-| POST    | `/commandes`                               | client, revendeur                    | Créer une commande aux prix figés, avec numéro et code de retrait     |
-| GET     | `/commandes?page=1&client=12`              | client, revendeur, agents, direction | Liste : ses commandes pour un client, toutes pour le personnel        |
-| GET     | `/commandes/:id`                           | propriétaire ou personnel            | Détail : lignes, montants, étape actuelle, historique                 |
+| Méthode | Route                                      | Accès                                                   | Rôle                                                                  |
+| ------- | ------------------------------------------ | ------------------------------------------------------- | --------------------------------------------------------------------- |
+| GET     | `/catalogue/categories`                    | public                                                  | Liste des catégories                                                  |
+| GET     | `/catalogue/produits?categorie=1&marque=2` | public                                                  | Produits publiés, filtres facultatifs                                 |
+| GET     | `/catalogue/produits/:id`                  | public                                                  | Détail d'un produit : variantes, options, paliers de prix             |
+| POST    | `/auth/inscription`                        | public                                                  | Créer un compte client                                                |
+| POST    | `/auth/connexion`                          | public                                                  | Se connecter, reçoit un jeton JWT                                     |
+| GET     | `/auth/moi`                                | connecté                                                | Profil de l'utilisateur connecté                                      |
+| GET     | `/utilisateurs?role=agent_dubai`           | direction                                               | Liste des comptes, filtre facultatif                                  |
+| POST    | `/utilisateurs`                            | direction                                               | Créer un compte avec un rôle                                          |
+| PATCH   | `/utilisateurs/:id/statut`                 | direction                                               | Activer, mettre en attente ou suspendre un compte                     |
+| POST    | `/commandes/devis`                         | public                                                  | Chiffrer un panier (paliers, transport, frais), sans rien enregistrer |
+| POST    | `/commandes`                               | client, revendeur                                       | Créer une commande aux prix figés, avec numéro et code de retrait     |
+| GET     | `/commandes?page=1&client=12`              | client, revendeur, agents, direction                    | Liste : ses commandes pour un client, toutes pour le personnel        |
+| GET     | `/commandes/:id`                           | propriétaire ou personnel                               | Détail : lignes, montants, étape actuelle, historique                 |
+| POST    | `/commandes/:id/paiements`                 | agent_bureau, direction ; client et revendeur par avoir | Enregistrer un paiement (espèces, mobile money, carte, avoir)         |
+| GET     | `/avoirs/moi`                              | client, revendeur                                       | Mon solde d'avoir et mon carnet                                       |
+| GET     | `/avoirs?client=12`                        | agent_bureau, direction                                 | Solde et carnet d'un client                                           |
+| POST    | `/avoirs`                                  | direction                                               | Créditer un client                                                    |
 
 Les prix sont donnés en dirhams (AED) et en dollars (USD). Le taux de change, le transport (5 % du montant des articles) et les frais de service (10 $, payés au retrait) viennent de la table `parametre`.
 
 Le panier n'est pas enregistré dans la base : il vit dans l'application jusqu'à la commande.
+
+## Paiements et avoirs
+
+- Une commande se paie en deux temps : **articles + transport** (`articles_transport`), puis **frais de service** au retrait (`solde_retrait`). Le paiement en plusieurs fois est permis, jamais au-delà du reste à payer.
+- Quand les articles et le transport sont entièrement payés, la commande passe automatiquement à l'étape « Payée ».
+- Les paiements en espèces, mobile money et carte sont enregistrés par le bureau (référence obligatoire pour mobile money et carte). Le paiement automatique M-Pesa sera branché plus tard.
+- Un **avoir** est un crédit du client : + crédit, − utilisation, le solde est la somme. Le client peut payer lui-même ses commandes par avoir.
+- Les paiements se font dans une transaction sérialisable : deux paiements simultanés ne peuvent pas dépasser le reste à payer ni le solde d'avoir.
 
 ## Structure
 
@@ -110,7 +122,9 @@ src/
   auth/               inscription, connexion, gardes JWT et rôles, décorateurs
   utilisateurs/       gestion des comptes par la direction
   catalogue/          routes du catalogue
-  commandes/          devis, création et suivi des commandes, calcul des prix
+  commandes/          devis, création et suivi des commandes, calcul des prix et du reste à payer
+  paiements/          enregistrement des paiements
+  avoirs/             solde, carnet et crédit des avoirs
 ```
 
 ## Commandes utiles
