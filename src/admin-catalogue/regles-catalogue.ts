@@ -102,3 +102,26 @@ export function prixAvecMarge(
     .times(margePourcentage.div(100).plus(1))
     .toDecimalPlaces(0, Prisma.Decimal.ROUND_UP);
 }
+
+// La marge réelle d'une variante, calculée sur l'offre disponible la moins chère :
+// marge = (prix client − prix boutique) / prix boutique. alerteMarge : vente à perte ou sans gain.
+export function margeVariante(
+  prixCatalogue: Prisma.Decimal,
+  offres: { prixBoutiqueAed: Prisma.Decimal; estDisponible: boolean }[],
+) {
+  const meilleure = offres
+    .filter((o) => o.estDisponible)
+    .reduce<Prisma.Decimal | null>(
+      (min, o) =>
+        min === null || o.prixBoutiqueAed.lt(min) ? o.prixBoutiqueAed : min,
+      null,
+    );
+  if (meilleure === null) {
+    return { margePourcentage: null, alerteMarge: false };
+  }
+  const marge = prixCatalogue.minus(meilleure).div(meilleure).times(100);
+  return {
+    margePourcentage: marge.toFixed(1),
+    alerteMarge: prixCatalogue.lte(meilleure),
+  };
+}

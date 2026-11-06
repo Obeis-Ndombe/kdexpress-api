@@ -1,0 +1,63 @@
+# Vérifications automatiques à chaque push et à chaque pull request.
+# Résultat : une coche verte (tout passe) ou une croix rouge à côté du commit sur GitHub.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verifications:
+    runs-on: ubuntu-latest
+
+    # Une base PostgreSQL jetable, le temps des tests de bout en bout
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kdexpress
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # De fausses valeurs, propres à cette machine de test (ce ne sont pas les vrais secrets)
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kdexpress
+      JWT_SECRET: secret-de-test-uniquement
+      JWT_DUREE_SECONDES: 86400
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Générer le client Prisma
+        run: npx prisma generate
+
+      - name: Vérifier le style du code (lint)
+        run: npm run lint
+
+      - name: Compiler
+        run: npm run build
+
+      - name: Tests unitaires
+        run: npm test
+
+      - name: Créer les tables
+        run: npx prisma migrate deploy
+
+      - name: Tests de bout en bout
+        run: npm run test:e2e
