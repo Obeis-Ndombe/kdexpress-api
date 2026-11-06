@@ -16,6 +16,7 @@ En développement.
 | Panier et commandes                            | Fait |
 | Paiements et avoirs                            | Fait |
 | Achats à Dubaï, expédition, retrait            | Fait |
+| Gestion du catalogue et boutiques partenaires  | Fait |
 
 ## Technologies
 
@@ -96,6 +97,8 @@ Une inscription crée toujours un `client` ; les autres comptes sont créés par
 | POST    | `/avoirs`                                  | direction                                               | Créditer un client                                                                         |
 | POST    | `/commandes/:id/annuler`                   | direction ; client pour sa commande non payée           | Annuler une commande (remboursement en avoir si besoin)                                    |
 | GET     | `/boutiques`, POST `/boutiques`            | agent_dubai, direction                                  | Boutiques de Dubaï                                                                         |
+| GET     | `/boutiques/:id/offres`                    | agent_dubai, direction                                  | Prix connus d'une boutique                                                                 |
+| PUT     | `/boutiques/:id/offres/:idVariante`        | agent_dubai, direction                                  | Noter le prix vu dans une boutique (sauf boutique vérifiée, qui tient ses prix)            |
 | GET     | `/achats/a-faire`                          | agent_dubai, direction                                  | Liste d'achats : lignes des commandes payées, regroupées par article, alerte après N jours |
 | POST    | `/achats`                                  | agent_dubai                                             | Enregistrer un achat en boutique (prix réel unitaire)                                      |
 | POST    | `/achats/lignes/:id/introuvable`           | agent_dubai                                             | Signaler un article introuvable                                                            |
@@ -148,12 +151,72 @@ Le suivi d'une commande avance tout seul, étape par étape, chaque étape une s
 - Une commande peut avoir plusieurs colis ; un colis n'appartient qu'à une commande ; un lot regroupe des colis de plusieurs commandes.
 - Les photos des colis sont enregistrées par leur nom de fichier ; l'envoi réel de fichiers viendra plus tard.
 
+## Gestion du catalogue (direction)
+
+Toutes ces routes sont réservées à la direction. Le catalogue public (`/catalogue`) ne montre que les produits `publie`.
+
+| Méthode | Route                                                            | Rôle                                                                           |
+| ------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| GET     | `/admin/categories`, `/admin/marques`, `/admin/caracteristiques` | Les listes de base                                                             |
+| POST    | `/admin/categories`, `/admin/marques`, `/admin/caracteristiques` | Créer un élément (409 si le nom existe déjà)                                   |
+| PATCH   | `/admin/categories/:id`                                          | Changer le nom ou le poids par défaut                                          |
+| PUT     | `/admin/categories/:id/caracteristiques`                         | Caractéristiques prévues pour la catégorie (`description` ou `choix_variante`) |
+| GET     | `/admin/produits?statut=propose&categorie=1&marque=2`            | Tous les produits, quel que soit leur statut                                   |
+| GET     | `/admin/produits/:id`                                            | Détail complet, avec les offres des boutiques et la marge de chaque variante   |
+| POST    | `/admin/produits`                                                | Créer un produit complet (variantes, options, paliers, photos)                 |
+| PATCH   | `/admin/produits/:id`                                            | Changer le nom, la description ou la marque                                    |
+| POST    | `/admin/produits/:id/publier`, `/refuser`, `/retirer`            | Changer le statut                                                              |
+| POST    | `/admin/produits/:id/variantes`                                  | Ajouter une variante                                                           |
+| POST    | `/admin/produits/:id/photos`                                     | Ajouter une photo (nom de fichier)                                             |
+| PATCH   | `/admin/variantes/:id`                                           | Changer le prix, le poids, le libellé, ou mettre en vente / retirer            |
+| PUT     | `/admin/variantes/:id/paliers`                                   | Remplacer tous les paliers de prix d'une variante                              |
+
+- Un produit se crée en une seule requête, dans une seule transaction : si une règle est violée, rien n'est créé.
+- Les caractéristiques d'un produit doivent être prévues en `description` pour sa catégorie, celles d'une variante en `choix_variante`.
+- Un palier commence à 2 pièces au moins, et chaque palier coûte moins que le précédent et que le prix catalogue.
+- Statuts : `propose` → `publie` ou `refuse` ; `publie` → `retire` ; `retire` → `publie`. Publier demande une variante en vente.
+- Un changement de prix ne touche que les futures commandes : les commandes passées gardent leur prix figé.
+- Rien ne se supprime : une variante ou un produit se retire.
+
+## Boutiques partenaires
+
+Une boutique de Dubaï peut avoir un compte chez KDExpress : elle propose ses produits et tient ses prix à jour.
+
+Il y a deux prix :
+
+| Prix               | Fixé par       | Rôle                                             |
+| ------------------ | -------------- | ------------------------------------------------ |
+| **Prix boutique**  | le fournisseur | Ce que KDExpress paie à Dubaï (`offre_boutique`) |
+| **Prix catalogue** | la direction   | Ce que le client paie (`variante`)               |
+
+La **marge** est ce que gagne KDExpress : `prix catalogue − prix boutique`, exprimée en % du prix boutique.
+
+| Méthode | Route                                               | Accès       | Rôle                                                          |
+| ------- | --------------------------------------------------- | ----------- | ------------------------------------------------------------- |
+| GET     | `/admin/boutiques/:id`                              | direction   | Détail d'une boutique et de ses gestionnaires                 |
+| POST    | `/admin/boutiques/:id/gestionnaires`                | direction   | Rattacher un compte `fournisseur` (`proprietaire`, `vendeur`) |
+| DELETE  | `/admin/boutiques/:id/gestionnaires/:idUtilisateur` | direction   | Détacher un compte                                            |
+| POST    | `/admin/boutiques/:id/verifier`, `/refuser`         | direction   | Vérifier ou refuser une boutique                              |
+| GET     | `/fournisseur/boutiques`                            | fournisseur | Mes boutiques                                                 |
+| GET     | `/fournisseur/boutiques/:id/produits`               | fournisseur | Mes propositions et leur statut                               |
+| POST    | `/fournisseur/boutiques/:id/produits`               | fournisseur | Proposer un produit avec mes prix boutique                    |
+| PATCH   | `/fournisseur/boutiques/:id/produits/:idProduit`    | fournisseur | Corriger une proposition encore en attente                    |
+| GET     | `/fournisseur/boutiques/:id/offres`                 | fournisseur | Mes offres                                                    |
+| PUT     | `/fournisseur/boutiques/:id/offres/:idVariante`     | fournisseur | Créer ou modifier une offre (prix, disponibilité)             |
+
+- Statuts d'une boutique : `non_inscrite` (sans compte) → `en_attente` (un compte rattaché) → `verifiee` ou `refusee`. Seule une boutique vérifiée peut proposer des produits et faire des offres.
+- À la proposition, le prix client est calculé : prix boutique + marge (`marge_catalogue_pourcentage`, 20 %), arrondi au dirham supérieur. Le produit reste `propose` : la direction contrôle le prix, puis publie.
+- Une fois publié, le produit appartient au catalogue de la direction ; la boutique ne gère plus que ses offres.
+- Un changement de prix boutique ne change jamais le prix client. Si la marge devient nulle ou négative, `alerteMarge` le signale à la direction.
+- Un fournisseur ne voit que ses boutiques (404 pour celle d'un autre).
+- La liste d'achats de l'agent affiche les offres disponibles, la moins chère d'abord.
+
 ## Structure
 
 ```
 prisma/
   schema.prisma       description des 28 tables
-  migrations/         historique de la base (init + contraintes)
+  migrations/         historique de la base (init, contraintes, marge du catalogue)
   seed.ts             données d'essai
   creer-direction.ts  création du premier compte de la direction
 src/
@@ -163,10 +226,12 @@ src/
   auth/               inscription, connexion, gardes JWT et rôles, décorateurs
   utilisateurs/       gestion des comptes par la direction
   catalogue/          routes du catalogue
+  admin-catalogue/    référentiel, produits, variantes, paliers et statuts (direction)
   commandes/          devis, création, suivi et annulation des commandes, calculs des montants, étapes
   paiements/          enregistrement des paiements
   avoirs/             solde, carnet et crédit des avoirs
-  boutiques/          boutiques de Dubaï
+  boutiques/          boutiques de Dubaï, gestionnaires, vérification, offres
+  fournisseur/        espace des boutiques partenaires : propositions et offres
   achats/             liste d'achats, achats en boutique, introuvables et remboursements
   agences/            agences de transport
   expedition/         colis, lots, départ, arrivée, pointage
