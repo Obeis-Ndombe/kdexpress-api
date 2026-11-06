@@ -1,0 +1,69 @@
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
+import type { UtilisateurConnecte } from '../auth/auth.types.js';
+import { Public } from '../auth/decorateurs/public.decorator.js';
+import { Roles } from '../auth/decorateurs/roles.decorator.js';
+import { Utilisateur } from '../auth/decorateurs/utilisateur-connecte.decorator.js';
+import { CommandesService } from './commandes.service.js';
+import { DemandeCommandeDto } from './dto/demande-commande.dto.js';
+
+// Ceux qui suivent des commandes : les clients (les leurs) et le personnel (toutes)
+const ROLES_SUIVI = [
+  'client',
+  'revendeur',
+  'agent_dubai',
+  'agent_bureau',
+  'direction',
+] as const;
+
+@Controller('commandes')
+export class CommandesController {
+  constructor(private readonly commandesService: CommandesService) {}
+
+  // POST /commandes/devis : ouvert à tous, un visiteur peut voir ce que coûte son panier
+  @Public()
+  @Post('devis')
+  @HttpCode(200) // on calcule, on ne crée rien
+  devis(@Body() dto: DemandeCommandeDto) {
+    return this.commandesService.devis(dto);
+  }
+
+  // POST /commandes : seuls les clients et les revendeurs passent commande
+  @Roles('client', 'revendeur')
+  @Post()
+  creer(
+    @Body() dto: DemandeCommandeDto,
+    @Utilisateur() client: UtilisateurConnecte,
+  ) {
+    return this.commandesService.creer(dto, client.idUtilisateur);
+  }
+
+  // GET /commandes?page=2  (personnel : ?client=12 pour filtrer)
+  @Roles(...ROLES_SUIVI)
+  @Get()
+  lister(
+    @Utilisateur() utilisateur: UtilisateurConnecte,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('client', new ParseIntPipe({ optional: true })) idClient?: number,
+  ) {
+    return this.commandesService.lister(utilisateur, page, idClient);
+  }
+
+  // GET /commandes/:id
+  @Roles(...ROLES_SUIVI)
+  @Get(':id')
+  detail(
+    @Param('id', ParseIntPipe) idCommande: number,
+    @Utilisateur() utilisateur: UtilisateurConnecte,
+  ) {
+    return this.commandesService.detail(idCommande, utilisateur);
+  }
+}
