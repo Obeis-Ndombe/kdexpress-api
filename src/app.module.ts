@@ -13,6 +13,8 @@ import { BoutiquesModule } from './boutiques/boutiques.module.js';
 import { AchatsModule } from './achats/achats.module.js';
 import { AgencesModule } from './agences/agences.module.js';
 import { ExpeditionModule } from './expedition/expedition.module.js';
+import { RetraitsModule } from './retraits/retraits.module.js';
+import { AvisModule } from './avis/avis.module.js';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { ExpeditionModule } from './expedition/expedition.module.js';
     AchatsModule,
     AgencesModule,
     ExpeditionModule,
+    RetraitsModule,
+    AvisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

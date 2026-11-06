@@ -50,3 +50,23 @@ export function resteAPayer(
     total: articlesTransport.add(soldeRetrait),
   };
 }
+
+// Ce qu'on rend au client pour une ligne qui n'a pas pu être achetée :
+// l'article au taux figé, plus sa part du transport payé (au prorata du montant des articles)
+export function remboursementLigne(
+  c: CommandeAChiffrer,
+  ligne: { prixUnitaireAed: Decimal; quantite: number },
+) {
+  const articleUsd = ligne.prixUnitaireAed
+    .mul(ligne.quantite)
+    .mul(c.tauxChangeAedUsd)
+    .toDecimalPlaces(2);
+  const totalArticlesUsd = articlesEnUsd(c);
+  const transportUsd = totalArticlesUsd.isZero()
+    ? new Prisma.Decimal(0)
+    : c.fraisTransportUsd
+        .mul(articleUsd)
+        .div(totalArticlesUsd)
+        .toDecimalPlaces(2);
+  return { articleUsd, transportUsd, totalUsd: articleUsd.add(transportUsd) };
+}

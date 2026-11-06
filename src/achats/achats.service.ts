@@ -9,7 +9,7 @@ import type { UtilisateurConnecte } from '../auth/auth.types.js';
 import { AvoirsService } from '../avoirs/avoirs.service.js';
 import { franchirEtape } from '../commandes/avancement.js';
 import { ORDRE_ETAPE } from '../commandes/etapes.js';
-import { articlesEnUsd } from '../commandes/montants.js';
+import { remboursementLigne } from '../commandes/montants.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EnregistrerAchatDto } from './dto/enregistrer-achat.dto.js';
 
@@ -224,18 +224,11 @@ export class AchatsService {
 
       // le montant : l'article au taux figé, plus sa part du transport payé
       const c = ligne.commande;
-      const articleUsd = ligne.prixUnitaireAed
-        .mul(ligne.quantite)
-        .mul(c.tauxChangeAedUsd)
-        .toDecimalPlaces(2);
-      const totalArticlesUsd = articlesEnUsd(c);
-      const transportUsd = totalArticlesUsd.isZero()
-        ? new Prisma.Decimal(0)
-        : c.fraisTransportUsd
-            .mul(articleUsd)
-            .div(totalArticlesUsd)
-            .toDecimalPlaces(2);
-      const montant = articleUsd.add(transportUsd);
+      const {
+        articleUsd,
+        transportUsd,
+        totalUsd: montant,
+      } = remboursementLigne(c, ligne);
 
       // « introuvable » → « remboursée » une seule fois, même si deux personnes cliquent ensemble
       await this.changerStatut(tx, idLigneCommande, 'introuvable', {
