@@ -3,12 +3,12 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { UtilisateurConnecte } from '../auth/auth.types.js';
 import { AvoirsService } from '../avoirs/avoirs.service.js';
+import { franchirEtape } from '../commandes/avancement.js';
 import { ORDRE_ETAPE } from '../commandes/etapes.js';
 import { montantsDus, resteAPayer } from '../commandes/montants.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -169,27 +169,16 @@ export class PaiementsService {
         });
 
         // 6. articles et transport entièrement payés : l'étape « Payée », une seule fois
-        let etapeFranchie: string | null = null;
         const solde =
           dto.objet === 'articles_transport' && montant.eq(resteObjet);
-        if (solde && !ordresFranchis.includes(ORDRE_ETAPE.PAYEE)) {
-          const payee = await tx.etapeCommande.findFirst({
-            where: { ordreEtape: ORDRE_ETAPE.PAYEE },
-          });
-          if (!payee) {
-            throw new InternalServerErrorException(
-              'Étape « Payée » absente de la table etape_commande',
-            );
-          }
-          await tx.historiqueCommande.create({
-            data: {
+        const etapeFranchie = solde
+          ? await franchirEtape(
+              tx,
               idCommande,
-              idEtapeCommande: payee.idEtapeCommande,
-              commentaireEtape: `Paiement n°${paiement.idPaiement}`,
-            },
-          });
-          etapeFranchie = payee.libelleEtape;
-        }
+              ORDRE_ETAPE.PAYEE,
+              `Paiement n°${paiement.idPaiement}`,
+            )
+          : null;
 
         const dus = montantsDus(commande);
         const apres = resteAPayer(commande, [...commande.paiements, paiement]);

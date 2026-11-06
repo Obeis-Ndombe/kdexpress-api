@@ -9,6 +9,8 @@ import { UtilisateursModule } from './utilisateurs/utilisateurs.module.js';
 import { CommandesModule } from './commandes/commandes.module.js';
 import { PaiementsModule } from './paiements/paiements.module.js';
 import { AvoirsModule } from './avoirs/avoirs.module.js';
+import { BoutiquesModule } from './boutiques/boutiques.module.js';
+import { AchatsModule } from './achats/achats.module.js';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { AvoirsModule } from './avoirs/avoirs.module.js';
     CommandesModule,
     PaiementsModule,
     AvoirsModule,
+    BoutiquesModule,
+    AchatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
