@@ -17,6 +17,7 @@ import {
 } from './dto/produit.dto.js';
 import {
   estErreurPrisma,
+  margeVariante,
   montantPositif,
   verifierCaracteristiques,
   verifierPaliers,
@@ -50,29 +51,6 @@ const INCLUSION_PRODUIT = {
 type ProduitComplet = Prisma.ProduitGetPayload<{
   include: typeof INCLUSION_PRODUIT;
 }>;
-
-// La marge réelle d'une variante, calculée sur l'offre disponible la moins chère :
-// marge = (prix client − prix boutique) / prix boutique. alerteMarge : vente à perte ou sans gain.
-function margeVariante(
-  prixCatalogue: Prisma.Decimal,
-  offres: { prixBoutiqueAed: Prisma.Decimal; estDisponible: boolean }[],
-) {
-  const meilleure = offres
-    .filter((o) => o.estDisponible)
-    .reduce<Prisma.Decimal | null>(
-      (min, o) =>
-        min === null || o.prixBoutiqueAed.lt(min) ? o.prixBoutiqueAed : min,
-      null,
-    );
-  if (meilleure === null) {
-    return { margePourcentage: null, alerteMarge: false };
-  }
-  const marge = prixCatalogue.minus(meilleure).div(meilleure).times(100);
-  return {
-    margePourcentage: marge.toFixed(1),
-    alerteMarge: prixCatalogue.lte(meilleure),
-  };
-}
 
 // Une variante vérifiée, prête à être écrite
 interface VarianteVerifiee {

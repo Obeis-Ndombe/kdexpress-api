@@ -16,11 +16,16 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  // Démarre l'application complète : il faut la base de données du fichier .env
+  it('GET / répond sans jeton', () => {
     return request(app.getHttpServer())
       .get('/')
       .expect(200)
-      .expect('Hello World!');
+      .expect({ nom: 'KDExpress API', statut: 'ok' });
+  });
+
+  it('une route protégée sans jeton répond 401', () => {
+    return request(app.getHttpServer()).get('/avoirs/moi').expect(401);
   });
 
   afterEach(async () => {

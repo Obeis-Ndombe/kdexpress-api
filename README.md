@@ -250,6 +250,17 @@ src/
 | `npx tsx prisma/seed.ts`                          | Remettre les données d'essai               |
 | `npx tsx prisma/creer-direction.ts <email> <mdp>` | Créer ou réinitialiser un compte direction |
 
+## Tests
+
+| Commande           | Rôle                                                                    |
+| ------------------ | ----------------------------------------------------------------------- |
+| `npm test`         | Tests unitaires des calculs (paliers, montants, remboursements, marge…) |
+| `npm run test:e2e` | Démarre l'API complète sur la base du `.env` et vérifie quelques routes |
+| `npm run lint`     | Vérifie le code                                                         |
+
+Les tests unitaires n'ont pas besoin de base de données : Prisma y est remplacé par une doublure.
+Sur GitHub, chaque push lance le lint, la compilation et les deux séries de tests (`.github/workflows/tests.yml`).
+
 ## Organisation du code
 
 - `main` contient toujours une version qui fonctionne.

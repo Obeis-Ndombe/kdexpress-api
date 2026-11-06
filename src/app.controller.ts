@@ -6,4 +6,10 @@ import { Public } from './auth/decorateurs/public.decorator.js';
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
+
+  // GET / : route de santé
+  @Get()
+  sante() {
+    return this.appService.sante();
+  }
 }
