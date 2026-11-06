@@ -11,6 +11,8 @@ import { PaiementsModule } from './paiements/paiements.module.js';
 import { AvoirsModule } from './avoirs/avoirs.module.js';
 import { BoutiquesModule } from './boutiques/boutiques.module.js';
 import { AchatsModule } from './achats/achats.module.js';
+import { AgencesModule } from './agences/agences.module.js';
+import { ExpeditionModule } from './expedition/expedition.module.js';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { AchatsModule } from './achats/achats.module.js';
     AvoirsModule,
     BoutiquesModule,
     AchatsModule,
+    AgencesModule,
+    ExpeditionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
