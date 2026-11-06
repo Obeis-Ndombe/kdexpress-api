@@ -1,11 +1,17 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma, Utilisateur } from '@prisma/client';
 import { compare, hash } from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ChargeJeton } from './charge-jeton.js';
 import { ConnexionDto } from './dto/connexion.dto.js';
 import { InscriptionDto } from './dto/inscription.dto.js';
+import type { ContenuJeton } from './auth.types.js';
 
 @Injectable()
 export class AuthService {
@@ -14,12 +20,13 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
-  // POST /auth/inscription : un nouveau compte est toujours un compte client
+  // Un nouveau compte créé par l'appli est toujours un compte client
   async inscrire(dto: InscriptionDto) {
-    // on ne stocke jamais le mot de passe en clair, mais un hash
-    const motDePasseHash = await hash(dto.motDePasse, 10); 
+    // 1. on ne garde jamais le mot de passe, seulement son empreinte
+    const motDePasseHash = await hash(dto.motDePasse, 10);
 
     try {
+      // 2. on enregistre l'utilisateur
       const utilisateur = await this.prisma.utilisateur.create({
         data: {
           nom: dto.nom,
@@ -30,50 +37,66 @@ export class AuthService {
           roleUtilisateur: 'client',
         },
       });
-      return this.reponseAvecJeton(utilisateur); 
+      // 3. on renvoie le profil, sans le hash
+      return this.profil(utilisateur);
     } catch (erreur) {
       // P2002 = la base refuse un doublon sur une colonne @unique (ici l'e-mail)
-      if (erreur instanceof Prisma.PrismaClientKnownRequestError && erreur.code === 'P2002') {
+      if (
+        erreur instanceof Prisma.PrismaClientKnownRequestError &&
+        erreur.code === 'P2002'
+      ) {
         throw new ConflictException('Un compte existe déjà avec cet e-mail');
       }
       throw erreur;
     }
   }
 
-  // POST /auth/connexion
+  // Vérifie l'e-mail et le mot de passe, puis remet un jeton
   async connecter(dto: ConnexionDto) {
-    const utilisateur = await this.prisma.utilisateur.findUnique({ where: { email: dto.email } });
+    // 1. on cherche le compte par son e-mail
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { email: dto.email },
+    });
 
-    // même message dans les deux cas : on ne révèle pas si l'e-mail existe
-    if (!utilisateur || !(await compare(dto.motDePasse, utilisateur.motDePasseHash))) {
+    // 2. on compare le mot de passe tapé à l'empreinte enregistrée
+    const motDePasseCorrect = utilisateur
+      ? await compare(dto.motDePasse, utilisateur.motDePasseHash)
+      : false;
+
+    // même message dans les deux cas : on ne dit pas à un inconnu si l'e-mail existe
+    if (!utilisateur || !motDePasseCorrect) {
       throw new UnauthorizedException('E-mail ou mot de passe incorrect');
     }
+
+    // 3. un compte suspendu ou pas encore validé ne peut pas se connecter
     if (utilisateur.statutCompte !== 'actif') {
-      throw new ForbiddenException(`Compte ${utilisateur.statutCompte}`);
+      throw new ForbiddenException("Ce compte n'est pas actif");
     }
-    return this.reponseAvecJeton(utilisateur);
+
+    // 4. on fabrique le jeton signé avec le secret du serveur
+    const contenu: ContenuJeton = {
+      sub: utilisateur.idUtilisateur,
+      role: utilisateur.roleUtilisateur,
+    };
+    const jetonAcces = await this.jwt.signAsync(contenu);
+
+    return { jetonAcces, utilisateur: this.profil(utilisateur) };
   }
 
-  // GET /auth/moi
+  // Le profil de l'utilisateur connecté
   async moi(idUtilisateur: number) {
-    const utilisateur = await this.prisma.utilisateur.findUnique({ where: { idUtilisateur } });
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { idUtilisateur },
+    });
     if (!utilisateur) {
-      throw new NotFoundException('Utilisateur introuvable');
+      throw new NotFoundException('Compte introuvable');
     }
     return this.profil(utilisateur);
   }
 
   // ------- outils internes -------
 
-  private async reponseAvecJeton(utilisateur: Utilisateur) {
-    const charge: ChargeJeton = { sub: utilisateur.idUtilisateur, role: utilisateur.roleUtilisateur };
-    return {
-      jeton: await this.jwt.signAsync(charge),
-      utilisateur: this.profil(utilisateur),
-    };
-  }
-
-  // ce qu'on montre d'un utilisateur : JAMAIS le hash du mot de passe
+  // Ce qu'on montre d'un utilisateur : JAMAIS le hash du mot de passe
   private profil(u: Utilisateur) {
     return {
       idUtilisateur: u.idUtilisateur,

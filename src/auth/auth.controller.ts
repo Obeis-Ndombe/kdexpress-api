@@ -1,29 +1,34 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
-import { AuthGuard } from './auth.guard.js';
+import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
-import type { ChargeJeton } from './charge-jeton.js';
+import type { UtilisateurConnecte } from './auth.types.js';
+import { Public } from './decorateurs/public.decorator.js';
+import { Utilisateur } from './decorateurs/utilisateur-connecte.decorator.js';
 import { ConnexionDto } from './dto/connexion.dto.js';
 import { InscriptionDto } from './dto/inscription.dto.js';
-import { UtilisateurConnecte } from './utilisateur-connecte.decorator.js';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // POST /auth/inscription : ouverte à tous
+  @Public()
   @Post('inscription')
   inscrire(@Body() dto: InscriptionDto) {
     return this.authService.inscrire(dto);
   }
 
+  // POST /auth/connexion : ouverte à tous
+  // 200 et pas 201 : on ne crée rien, on vérifie une identité
+  @Public()
   @Post('connexion')
-  @HttpCode(HttpStatus.OK) // un POST répond 201 par défaut ; ici rien n'est créé
+  @HttpCode(200)
   connecter(@Body() dto: ConnexionDto) {
     return this.authService.connecter(dto);
   }
 
+  // GET /auth/moi : réservée aux utilisateurs connectés
   @Get('moi')
-  @UseGuards(AuthGuard) // route protégée
-  moi(@UtilisateurConnecte() utilisateur: ChargeJeton) {
-    return this.authService.moi(utilisateur.sub);
+  moi(@Utilisateur() utilisateur: UtilisateurConnecte) {
+    return this.authService.moi(utilisateur.idUtilisateur);
   }
 }

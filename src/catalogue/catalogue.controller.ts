@@ -1,6 +1,8 @@
 import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { CatalogueService } from './catalogue.service.js';
+import { Public } from '../auth/decorateurs/public.decorator.js';
 
+@Public() // le catalogue se consulte sans être connecté
 @Controller('catalogue')
 export class CatalogueController {
   constructor(private readonly catalogueService: CatalogueService) {}
@@ -18,10 +20,11 @@ export class CatalogueController {
   // optional: true -> le filtre peut être absent.
   @Get('produits')
   listerProduits(
-    //new ParseIntPipe({ optional: true }) permet de rendre le paramètre optionnel 
-    // et de le convertir en nombre entier si présent. 
+    //new ParseIntPipe({ optional: true }) permet de rendre le paramètre optionnel
+    // et de le convertir en nombre entier si présent.
     // Si le paramètre est absent, il sera undefined.
-    @Query('categorie', new ParseIntPipe({ optional: true })) idCategorie?: number,
+    @Query('categorie', new ParseIntPipe({ optional: true }))
+    idCategorie?: number,
     @Query('marque', new ParseIntPipe({ optional: true })) idMarque?: number,
   ) {
     return this.catalogueService.listerProduits(idCategorie, idMarque);
