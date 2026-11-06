@@ -1,10 +1,28 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import type { UtilisateurConnecte } from '../auth/auth.types.js';
 import { Public } from '../auth/decorateurs/public.decorator.js';
 import { Roles } from '../auth/decorateurs/roles.decorator.js';
 import { Utilisateur } from '../auth/decorateurs/utilisateur-connecte.decorator.js';
 import { CommandesService } from './commandes.service.js';
 import { DemandeCommandeDto } from './dto/demande-commande.dto.js';
+
+// Ceux qui suivent des commandes : les clients (les leurs) et le personnel (toutes)
+const ROLES_SUIVI = [
+  'client',
+  'revendeur',
+  'agent_dubai',
+  'agent_bureau',
+  'direction',
+] as const;
 
 @Controller('commandes')
 export class CommandesController {
@@ -26,5 +44,26 @@ export class CommandesController {
     @Utilisateur() client: UtilisateurConnecte,
   ) {
     return this.commandesService.creer(dto, client.idUtilisateur);
+  }
+
+  // GET /commandes?page=2  (personnel : ?client=12 pour filtrer)
+  @Roles(...ROLES_SUIVI)
+  @Get()
+  lister(
+    @Utilisateur() utilisateur: UtilisateurConnecte,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('client', new ParseIntPipe({ optional: true })) idClient?: number,
+  ) {
+    return this.commandesService.lister(utilisateur, page, idClient);
+  }
+
+  // GET /commandes/:id
+  @Roles(...ROLES_SUIVI)
+  @Get(':id')
+  detail(
+    @Param('id', ParseIntPipe) idCommande: number,
+    @Utilisateur() utilisateur: UtilisateurConnecte,
+  ) {
+    return this.commandesService.detail(idCommande, utilisateur);
   }
 }

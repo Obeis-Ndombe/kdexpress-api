@@ -1,5 +1,11 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma, RoleUtilisateur } from '@prisma/client';
+import type { UtilisateurConnecte } from '../auth/auth.types.js';
 import {
   genererCodeRetrait,
   numeroCommande,
@@ -13,6 +19,59 @@ type Decimal = Prisma.Decimal;
 
 // Nombre d'essais si le code de retrait tiré existe déjà (très rare)
 const ESSAIS_CODE_RETRAIT = 5;
+
+// Nombre de commandes par page dans la liste
+const PAR_PAGE = 20;
+
+// Les rôles qui voient TOUTES les commandes
+const PERSONNEL: RoleUtilisateur[] = [
+  'agent_dubai',
+  'agent_bureau',
+  'direction',
+];
+
+// Les lignes d'une commande, avec les noms du produit et de la variante
+const LIGNES = {
+  orderBy: { idLigneCommande: 'asc' },
+  include: {
+    variante: {
+      select: {
+        libelleVariante: true,
+        produit: { select: { nomProduit: true } },
+      },
+    },
+  },
+} satisfies Prisma.Commande$lignesArgs;
+
+const CLIENT = {
+  select: { idUtilisateur: true, nom: true, prenom: true },
+} satisfies Prisma.UtilisateurDefaultArgs;
+
+// Pour la liste : les lignes (pour le total) et seulement la DERNIÈRE étape franchie
+const INCLUDE_LISTE = {
+  lignes: LIGNES,
+  client: CLIENT,
+  historique: {
+    orderBy: { etape: { ordreEtape: 'desc' } },
+    take: 1,
+    include: { etape: true },
+  },
+} satisfies Prisma.CommandeInclude;
+
+// Pour le détail : les lignes et TOUT l'historique, dans l'ordre
+const INCLUDE_DETAIL = {
+  lignes: LIGNES,
+  client: CLIENT,
+  historique: {
+    orderBy: { etape: { ordreEtape: 'asc' } },
+    include: { etape: true },
+  },
+} satisfies Prisma.CommandeInclude;
+
+// Une commande enregistrée avec ses lignes (le type est déduit de LIGNES par Prisma)
+type CommandeAvecLignes = Prisma.CommandeGetPayload<{
+  include: { lignes: typeof LIGNES };
+}>;
 
 @Injectable()
 export class CommandesService {
@@ -72,7 +131,129 @@ export class CommandesService {
     );
   }
 
+  // GET /commandes : les commandes visibles par cet utilisateur, 20 par page
+  async lister(utilisateur: UtilisateurConnecte, page = 1, idClient?: number) {
+    if (page < 1) {
+      throw new BadRequestException('La page commence à 1');
+    }
+    const where = this.visibles(utilisateur, idClient);
+    const personnel = this.estPersonnel(utilisateur);
+
+    // deux lectures dans la même transaction : le total et la page demandée
+    const [total, commandes] = await this.prisma.$transaction([
+      this.prisma.commande.count({ where }),
+      this.prisma.commande.findMany({
+        where,
+        orderBy: { idCommande: 'desc' }, // la plus récente d'abord
+        skip: (page - 1) * PAR_PAGE,
+        take: PAR_PAGE,
+        include: INCLUDE_LISTE,
+      }),
+    ]);
+
+    return {
+      page,
+      parPage: PAR_PAGE,
+      total,
+      pages: Math.ceil(total / PAR_PAGE),
+      commandes: commandes.map((c) => ({
+        idCommande: c.idCommande,
+        numeroCommande: c.numeroCommande,
+        dateCommande: c.dateCommande,
+        ...(personnel ? { client: c.client } : {}),
+        etape: c.historique[0]?.etape.libelleEtape ?? null,
+        nombreArticles: c.lignes.reduce((n, l) => n + l.quantite, 0),
+        totalUsd: this.presenter(this.chiffrageEnregistre(c)).totalUsd,
+      })),
+    };
+  }
+
+  // GET /commandes/:id : le détail, si l'utilisateur a le droit de la voir
+  async detail(idCommande: number, utilisateur: UtilisateurConnecte) {
+    const c = await this.prisma.commande.findFirst({
+      where: { idCommande, ...this.visibles(utilisateur) },
+      include: INCLUDE_DETAIL,
+    });
+
+    // la commande d'un autre client : « introuvable », comme si elle n'existait pas
+    if (!c) {
+      throw new NotFoundException(`Commande ${idCommande} introuvable`);
+    }
+
+    const montants = this.presenter(this.chiffrageEnregistre(c));
+    const historique = c.historique.map((h) => ({
+      etape: h.etape.libelleEtape,
+      ordre: h.etape.ordreEtape,
+      date: h.dateFranchissement,
+      commentaire: h.commentaireEtape,
+    }));
+
+    return {
+      idCommande: c.idCommande,
+      numeroCommande: c.numeroCommande,
+      dateCommande: c.dateCommande,
+      // le personnel voit le client ; seul le client voit son code de retrait
+      ...(this.estPersonnel(utilisateur)
+        ? { client: c.client }
+        : { codeRetrait: c.codeRetrait }),
+      etape: historique.at(-1)?.etape ?? null,
+      historique,
+      ...montants,
+      // chaque ligne garde aussi son id et son statut (à acheter, achetée…)
+      lignes: montants.lignes.map((l, i) => ({
+        idLigneCommande: c.lignes[i].idLigneCommande,
+        ...l,
+        statut: c.lignes[i].statutLigneCommande,
+      })),
+    };
+  }
+
   // ------- outils internes -------
+
+  private estPersonnel(utilisateur: UtilisateurConnecte): boolean {
+    return PERSONNEL.includes(utilisateur.role);
+  }
+
+  // LA règle « qui voit quoi », utilisée par la liste ET le détail
+  private visibles(
+    utilisateur: UtilisateurConnecte,
+    idClient?: number,
+  ): Prisma.CommandeWhereInput {
+    if (this.estPersonnel(utilisateur)) {
+      return idClient ? { idClient } : {}; // tout, ou un client précis
+    }
+    return { idClient: utilisateur.idUtilisateur }; // un client : seulement les siennes
+  }
+
+  // Refait le chiffrage à partir des valeurs FIGÉES dans la commande (pas du catalogue)
+  private chiffrageEnregistre(c: CommandeAvecLignes): Chiffrage {
+    const lignes = c.lignes.map((l) => ({
+      idVariante: l.idVariante,
+      produit: l.variante.produit.nomProduit,
+      variante: l.variante.libelleVariante,
+      quantite: l.quantite,
+      prixUnitaireAed: l.prixUnitaireAed,
+      poidsUnitaireKg: l.poidsUnitaireKg,
+      sousTotalAed: l.prixUnitaireAed.mul(l.quantite),
+    }));
+    const articlesAed = lignes.reduce(
+      (total, l) => total.add(l.sousTotalAed),
+      new Prisma.Decimal(0),
+    );
+
+    return {
+      tauxChangeAedUsd: c.tauxChangeAedUsd,
+      lignes,
+      articlesAed,
+      articlesUsd: articlesAed.mul(c.tauxChangeAedUsd).toDecimalPlaces(2),
+      poidsTotalKg: lignes.reduce(
+        (total, l) => total.add(l.poidsUnitaireKg.mul(l.quantite)),
+        new Prisma.Decimal(0),
+      ),
+      fraisTransportUsd: c.fraisTransportUsd,
+      fraisServiceUsd: c.fraisServiceUsd,
+    };
+  }
 
   // Toutes les écritures d'une commande, dans UNE transaction : tout ou rien
   private enregistrer(c: Chiffrage, idClient: number, idPremiereEtape: number) {
