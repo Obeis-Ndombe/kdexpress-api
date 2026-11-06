@@ -11,6 +11,8 @@ import {
   numeroCommande,
   numeroProvisoire,
 } from './codes.js';
+import { ORDRE_ETAPE } from './etapes.js';
+import { articlesEnUsd, resteAPayer } from './montants.js';
 import { DemandeCommandeDto } from './dto/demande-commande.dto.js';
 import { Chiffrage, TarificationService } from './tarification.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -66,6 +68,7 @@ const INCLUDE_DETAIL = {
     orderBy: { etape: { ordreEtape: 'asc' } },
     include: { etape: true },
   },
+  paiements: { orderBy: { datePaiement: 'asc' } },
 } satisfies Prisma.CommandeInclude;
 
 // Une commande enregistrée avec ses lignes (le type est déduit de LIGNES par Prisma)
@@ -93,7 +96,7 @@ export class CommandesService {
 
     // la 1re étape du suivi : « En attente de paiement »
     const premiereEtape = await this.prisma.etapeCommande.findFirst({
-      where: { ordreEtape: 1 },
+      where: { ordreEtape: ORDRE_ETAPE.EN_ATTENTE_PAIEMENT },
     });
     if (!premiereEtape) {
       throw new InternalServerErrorException(
@@ -187,6 +190,7 @@ export class CommandesService {
       date: h.dateFranchissement,
       commentaire: h.commentaireEtape,
     }));
+    const reste = resteAPayer(c, c.paiements);
 
     return {
       idCommande: c.idCommande,
@@ -205,6 +209,18 @@ export class CommandesService {
         ...l,
         statut: c.lignes[i].statutLigneCommande,
       })),
+      paiements: c.paiements.map((p) => ({
+        date: p.datePaiement,
+        objet: p.objetPaiement,
+        moyen: p.moyenPaiement,
+        montantUsd: p.montantPayeUsd.toFixed(2),
+        reference: p.referencePaiement,
+      })),
+      resteAPayer: {
+        articlesTransportUsd: reste.articlesTransport.toFixed(2),
+        soldeRetraitUsd: reste.soldeRetrait.toFixed(2),
+        totalUsd: reste.total.toFixed(2),
+      },
     };
   }
 
@@ -245,7 +261,7 @@ export class CommandesService {
       tauxChangeAedUsd: c.tauxChangeAedUsd,
       lignes,
       articlesAed,
-      articlesUsd: articlesAed.mul(c.tauxChangeAedUsd).toDecimalPlaces(2),
+      articlesUsd: articlesEnUsd(c), // le même calcul que pour les paiements
       poidsTotalKg: lignes.reduce(
         (total, l) => total.add(l.poidsUnitaireKg.mul(l.quantite)),
         new Prisma.Decimal(0),
