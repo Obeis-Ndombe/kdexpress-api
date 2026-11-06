@@ -9,6 +9,12 @@ import { UtilisateursModule } from './utilisateurs/utilisateurs.module.js';
 import { CommandesModule } from './commandes/commandes.module.js';
 import { PaiementsModule } from './paiements/paiements.module.js';
 import { AvoirsModule } from './avoirs/avoirs.module.js';
+import { BoutiquesModule } from './boutiques/boutiques.module.js';
+import { AchatsModule } from './achats/achats.module.js';
+import { AgencesModule } from './agences/agences.module.js';
+import { ExpeditionModule } from './expedition/expedition.module.js';
+import { RetraitsModule } from './retraits/retraits.module.js';
+import { AvisModule } from './avis/avis.module.js';
 
 @Module({
   imports: [
@@ -20,6 +26,12 @@ import { AvoirsModule } from './avoirs/avoirs.module.js';
     CommandesModule,
     PaiementsModule,
     AvoirsModule,
+    BoutiquesModule,
+    AchatsModule,
+    AgencesModule,
+    ExpeditionModule,
+    RetraitsModule,
+    AvisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

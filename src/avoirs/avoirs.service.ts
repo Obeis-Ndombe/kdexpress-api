@@ -112,6 +112,24 @@ export class AvoirsService {
     };
   }
 
+  // Un crédit automatique (ex. article introuvable remboursé), DANS la transaction de l'appelant
+  async ajouterCredit(
+    idClient: number,
+    montant: Decimal,
+    motif: string,
+    idCommande: number,
+    tx: Connexion,
+  ) {
+    return tx.operationAvoir.create({
+      data: {
+        idClient,
+        idCommande,
+        montantUsd: montant,
+        motifOperation: motif,
+      },
+    });
+  }
+
   // Une utilisation de l'avoir : appelée par les paiements, DANS leur transaction
   async debiter(
     idClient: number,

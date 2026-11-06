@@ -12,7 +12,9 @@ import type { UtilisateurConnecte } from '../auth/auth.types.js';
 import { Public } from '../auth/decorateurs/public.decorator.js';
 import { Roles } from '../auth/decorateurs/roles.decorator.js';
 import { Utilisateur } from '../auth/decorateurs/utilisateur-connecte.decorator.js';
+import { AnnulationService } from './annulation.service.js';
 import { CommandesService } from './commandes.service.js';
+import { AnnulerCommandeDto } from './dto/annuler-commande.dto.js';
 import { DemandeCommandeDto } from './dto/demande-commande.dto.js';
 
 // Ceux qui suivent des commandes : les clients (les leurs) et le personnel (toutes)
@@ -26,7 +28,10 @@ const ROLES_SUIVI = [
 
 @Controller('commandes')
 export class CommandesController {
-  constructor(private readonly commandesService: CommandesService) {}
+  constructor(
+    private readonly commandesService: CommandesService,
+    private readonly annulation: AnnulationService,
+  ) {}
 
   // POST /commandes/devis : ouvert à tous, un visiteur peut voir ce que coûte son panier
   @Public()
@@ -65,5 +70,17 @@ export class CommandesController {
     @Utilisateur() utilisateur: UtilisateurConnecte,
   ) {
     return this.commandesService.detail(idCommande, utilisateur);
+  }
+
+  // POST /commandes/:id/annuler : la direction ; le client pour SA commande pas encore payée
+  @Roles('direction', 'client', 'revendeur')
+  @Post(':id/annuler')
+  @HttpCode(200)
+  annuler(
+    @Param('id', ParseIntPipe) idCommande: number,
+    @Body() dto: AnnulerCommandeDto,
+    @Utilisateur() utilisateur: UtilisateurConnecte,
+  ) {
+    return this.annulation.annuler(idCommande, dto.motif, utilisateur);
   }
 }
