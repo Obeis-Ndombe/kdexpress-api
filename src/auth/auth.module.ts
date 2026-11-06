@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
+import { RolesGuard } from './roles.guard.js';
 
 @Module({
   imports: [
@@ -22,8 +23,9 @@ import { JwtAuthGuard } from './jwt-auth.guard.js';
   controllers: [AuthController],
   providers: [
     AuthService,
-    // APP_GUARD : la garde s'applique à TOUTES les routes de l'application
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // APP_GUARD : les gardes s'appliquent à TOUTES les routes, dans cet ordre
+    { provide: APP_GUARD, useClass: JwtAuthGuard }, // 1. qui es-tu ?
+    { provide: APP_GUARD, useClass: RolesGuard }, // 2. as-tu le droit ?
   ],
 })
 export class AuthModule {}
