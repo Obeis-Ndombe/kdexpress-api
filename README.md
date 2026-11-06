@@ -148,6 +148,33 @@ Le suivi d'une commande avance tout seul, étape par étape, chaque étape une s
 - Une commande peut avoir plusieurs colis ; un colis n'appartient qu'à une commande ; un lot regroupe des colis de plusieurs commandes.
 - Les photos des colis sont enregistrées par leur nom de fichier ; l'envoi réel de fichiers viendra plus tard.
 
+## Gestion du catalogue (direction)
+
+Toutes ces routes sont réservées à la direction. Le catalogue public (`/catalogue`) ne montre que les produits `publie`.
+
+| Méthode | Route                                                            | Rôle                                                                           |
+| ------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| GET     | `/admin/categories`, `/admin/marques`, `/admin/caracteristiques` | Les listes de base                                                             |
+| POST    | `/admin/categories`, `/admin/marques`, `/admin/caracteristiques` | Créer un élément (409 si le nom existe déjà)                                   |
+| PATCH   | `/admin/categories/:id`                                          | Changer le nom ou le poids par défaut                                          |
+| PUT     | `/admin/categories/:id/caracteristiques`                         | Caractéristiques prévues pour la catégorie (`description` ou `choix_variante`) |
+| GET     | `/admin/produits?statut=propose&categorie=1&marque=2`            | Tous les produits, quel que soit leur statut                                   |
+| GET     | `/admin/produits/:id`                                            | Détail complet, y compris les variantes retirées de la vente                   |
+| POST    | `/admin/produits`                                                | Créer un produit complet (variantes, options, paliers, photos)                 |
+| PATCH   | `/admin/produits/:id`                                            | Changer le nom, la description ou la marque                                    |
+| POST    | `/admin/produits/:id/publier`, `/refuser`, `/retirer`            | Changer le statut                                                              |
+| POST    | `/admin/produits/:id/variantes`                                  | Ajouter une variante                                                           |
+| POST    | `/admin/produits/:id/photos`                                     | Ajouter une photo (nom de fichier)                                             |
+| PATCH   | `/admin/variantes/:id`                                           | Changer le prix, le poids, le libellé, ou mettre en vente / retirer            |
+| PUT     | `/admin/variantes/:id/paliers`                                   | Remplacer tous les paliers de prix d'une variante                              |
+
+- Un produit se crée en une seule requête, dans une seule transaction : si une règle est violée, rien n'est créé.
+- Les caractéristiques d'un produit doivent être prévues en `description` pour sa catégorie, celles d'une variante en `choix_variante`.
+- Un palier commence à 2 pièces au moins, et chaque palier coûte moins que le précédent et que le prix catalogue.
+- Statuts : `propose` → `publie` ou `refuse` ; `publie` → `retire` ; `retire` → `publie`. Publier demande une variante en vente.
+- Un changement de prix ne touche que les futures commandes : les commandes passées gardent leur prix figé.
+- Rien ne se supprime : une variante ou un produit se retire.
+
 ## Structure
 
 ```
@@ -163,6 +190,7 @@ src/
   auth/               inscription, connexion, gardes JWT et rôles, décorateurs
   utilisateurs/       gestion des comptes par la direction
   catalogue/          routes du catalogue
+  admin-catalogue/    référentiel, produits, variantes, paliers et statuts (direction)
   commandes/          devis, création, suivi et annulation des commandes, calculs des montants, étapes
   paiements/          enregistrement des paiements
   avoirs/             solde, carnet et crédit des avoirs

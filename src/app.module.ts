@@ -15,6 +15,7 @@ import { AgencesModule } from './agences/agences.module.js';
 import { ExpeditionModule } from './expedition/expedition.module.js';
 import { RetraitsModule } from './retraits/retraits.module.js';
 import { AvisModule } from './avis/avis.module.js';
+import { AdminCatalogueModule } from './admin-catalogue/admin-catalogue.module.js';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AvisModule } from './avis/avis.module.js';
     ExpeditionModule,
     RetraitsModule,
     AvisModule,
+    AdminCatalogueModule,
   ],
   controllers: [AppController],
   providers: [AppService],
