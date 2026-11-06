@@ -39,6 +39,10 @@ const INCLUSION_PRODUIT = {
         include: { caracteristique: true },
         orderBy: { idCaracteristique: 'asc' },
       },
+      offres: {
+        orderBy: { prixBoutiqueAed: 'asc' },
+        include: { boutique: { select: { nomBoutique: true } } },
+      },
     },
   },
 } satisfies Prisma.ProduitInclude;
@@ -47,6 +51,29 @@ type ProduitComplet = Prisma.ProduitGetPayload<{
   include: typeof INCLUSION_PRODUIT;
 }>;
 
+// La marge réelle d'une variante, calculée sur l'offre disponible la moins chère :
+// marge = (prix client − prix boutique) / prix boutique. alerteMarge : vente à perte ou sans gain.
+function margeVariante(
+  prixCatalogue: Prisma.Decimal,
+  offres: { prixBoutiqueAed: Prisma.Decimal; estDisponible: boolean }[],
+) {
+  const meilleure = offres
+    .filter((o) => o.estDisponible)
+    .reduce<Prisma.Decimal | null>(
+      (min, o) =>
+        min === null || o.prixBoutiqueAed.lt(min) ? o.prixBoutiqueAed : min,
+      null,
+    );
+  if (meilleure === null) {
+    return { margePourcentage: null, alerteMarge: false };
+  }
+  const marge = prixCatalogue.minus(meilleure).div(meilleure).times(100);
+  return {
+    margePourcentage: marge.toFixed(1),
+    alerteMarge: prixCatalogue.lte(meilleure),
+  };
+}
+
 // Une variante vérifiée, prête à être écrite
 interface VarianteVerifiee {
   libelle: string;
@@ -54,6 +81,14 @@ interface VarianteVerifiee {
   poids: Prisma.Decimal;
   options: { idCaracteristique: number; valeur: string }[];
   paliers: { aPartirDe: number; prix: Prisma.Decimal }[];
+  prixBoutique?: Prisma.Decimal; // produit proposé par une boutique : son offre
+}
+
+// Un produit proposé par une boutique : son id et le prix boutique de chaque variante
+// (dans le même ordre que les variantes)
+export interface OrigineBoutique {
+  idBoutique: number;
+  prixBoutique: Prisma.Decimal[];
 }
 
 @Injectable()
@@ -103,7 +138,9 @@ export class ProduitsService {
   // POST /admin/produits : tout est vérifié AVANT d'écrire, puis une seule écriture
   // crée le produit, ses photos, ses caractéristiques, ses variantes, leurs options et leurs paliers.
   // Si quoi que ce soit échoue, rien n'est créé.
-  async creer(dto: CreerProduitDto) {
+  // Avec « origine » (proposition d'une boutique) : le produit reste « propose »,
+  // il garde sa boutique d'origine, et chaque variante reçoit l'offre de la boutique.
+  async creer(dto: CreerProduitDto, origine?: OrigineBoutique) {
     const categorie = await this.prisma.categorie.findUnique({
       where: { idCategorie: dto.idCategorie },
     });
@@ -123,14 +160,18 @@ export class ProduitsService {
       categorie.idCategorie,
       categorie.poidsParDefautKg,
     );
+    origine?.prixBoutique.forEach((prix, i) => {
+      variantes[i].prixBoutique = prix;
+    });
 
     const produit = await this.prisma.produit.create({
       data: {
         nomProduit: dto.nom,
         descriptionProduit: dto.description,
-        statutProduit: dto.publier ? 'publie' : 'propose',
+        statutProduit: dto.publier && !origine ? 'publie' : 'propose',
         idCategorie: dto.idCategorie,
         idMarque: dto.idMarque,
+        idBoutiqueOrigine: origine?.idBoutique,
         photos: {
           create: (dto.photos ?? []).map((fichier, i) => ({
             fichierPhotoProduit: fichier,
@@ -143,7 +184,11 @@ export class ProduitsService {
             valeur: c.valeur,
           })),
         },
-        variantes: { create: variantes.map((v) => this.donneesVariante(v)) },
+        variantes: {
+          create: variantes.map((v) =>
+            this.donneesVariante(v, origine?.idBoutique),
+          ),
+        },
       },
       include: INCLUSION_PRODUIT,
     });
@@ -430,7 +475,7 @@ export class ProduitsService {
   }
 
   // la variante vérifiée, au format de l'écriture imbriquée de Prisma
-  private donneesVariante(v: VarianteVerifiee) {
+  private donneesVariante(v: VarianteVerifiee, idBoutique?: number) {
     return {
       libelleVariante: v.libelle,
       prixCatalogueAed: v.prix,
@@ -442,6 +487,10 @@ export class ProduitsService {
         })),
       },
       caracteristiques: { create: v.options },
+      offres:
+        idBoutique !== undefined && v.prixBoutique
+          ? { create: { idBoutique, prixBoutiqueAed: v.prixBoutique } }
+          : undefined,
     };
   }
 
@@ -473,6 +522,7 @@ export class ProduitsService {
         idVariante: v.idVariante,
         libelle: v.libelleVariante,
         prixCatalogueAed: v.prixCatalogueAed.toFixed(2),
+        ...margeVariante(v.prixCatalogueAed, v.offres),
         poidsEstimeKg: v.poidsEstimeKg.toFixed(3),
         estEnVente: v.estEnVente,
         options: v.caracteristiques.map((c) => ({
@@ -483,6 +533,13 @@ export class ProduitsService {
         paliers: v.paliers.map((pa) => ({
           aPartirDe: pa.quantiteMinimum,
           prixAed: pa.prixPalierAed.toFixed(2),
+        })),
+        offres: v.offres.map((o) => ({
+          idBoutique: o.idBoutique,
+          boutique: o.boutique.nomBoutique,
+          prixAed: o.prixBoutiqueAed.toFixed(2),
+          disponible: o.estDisponible,
+          misAJourLe: o.dateMiseAJour,
         })),
       })),
     };

@@ -91,3 +91,14 @@ export async function verifierCaracteristiques(
     );
   }
 }
+
+// Le prix client proposé : prix boutique + marge, arrondi au dirham supérieur
+// (150 AED avec 20 % -> 180 ; 147 AED -> 176,40 -> 177)
+export function prixAvecMarge(
+  prixBoutique: Prisma.Decimal,
+  margePourcentage: Prisma.Decimal,
+): Prisma.Decimal {
+  return prixBoutique
+    .times(margePourcentage.div(100).plus(1))
+    .toDecimalPlaces(0, Prisma.Decimal.ROUND_UP);
+}

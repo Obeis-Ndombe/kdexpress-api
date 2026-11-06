@@ -16,6 +16,7 @@ import { ExpeditionModule } from './expedition/expedition.module.js';
 import { RetraitsModule } from './retraits/retraits.module.js';
 import { AvisModule } from './avis/avis.module.js';
 import { AdminCatalogueModule } from './admin-catalogue/admin-catalogue.module.js';
+import { FournisseurModule } from './fournisseur/fournisseur.module.js';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { AdminCatalogueModule } from './admin-catalogue/admin-catalogue.module.j
     RetraitsModule,
     AvisModule,
     AdminCatalogueModule,
+    FournisseurModule,
   ],
   controllers: [AppController],
   providers: [AppService],

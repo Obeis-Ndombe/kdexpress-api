@@ -7,5 +7,6 @@ import { ReferentielService } from './referentiel.service.js';
 @Module({
   controllers: [ReferentielController, ProduitsController],
   providers: [ReferentielService, ProduitsService],
+  exports: [ProduitsService], // le fournisseur crée ses propositions avec
 })
 export class AdminCatalogueModule {}
