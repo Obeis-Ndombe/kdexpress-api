@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -10,12 +11,7 @@ import { compare, hash } from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ConnexionDto } from './dto/connexion.dto.js';
 import { InscriptionDto } from './dto/inscription.dto.js';
-
-// Ce qu'on écrit dans le jeton : qui est l'utilisateur et quel est son rôle
-export interface ContenuJeton {
-  sub: number; // « subject » : l'id de l'utilisateur
-  role: Utilisateur['roleUtilisateur'];
-}
+import type { ContenuJeton } from './auth.types.js';
 
 @Injectable()
 export class AuthService {
@@ -85,6 +81,17 @@ export class AuthService {
     const jetonAcces = await this.jwt.signAsync(contenu);
 
     return { jetonAcces, utilisateur: this.profil(utilisateur) };
+  }
+
+  // Le profil de l'utilisateur connecté
+  async moi(idUtilisateur: number) {
+    const utilisateur = await this.prisma.utilisateur.findUnique({
+      where: { idUtilisateur },
+    });
+    if (!utilisateur) {
+      throw new NotFoundException('Compte introuvable');
+    }
+    return this.profil(utilisateur);
   }
 
   // ------- outils internes -------
