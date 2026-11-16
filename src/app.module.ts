@@ -18,6 +18,7 @@ import { AvisModule } from './avis/avis.module.js';
 import { AdminCatalogueModule } from './admin-catalogue/admin-catalogue.module.js';
 import { FournisseurModule } from './fournisseur/fournisseur.module.js';
 import { FichiersModule } from './fichiers/fichiers.module.js';
+import { EtiquettesModule } from './etiquettes/etiquettes.module.js';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { FichiersModule } from './fichiers/fichiers.module.js';
     AvisModule,
     AdminCatalogueModule,
     FournisseurModule,
+    EtiquettesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

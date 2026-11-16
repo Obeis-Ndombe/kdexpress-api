@@ -8,18 +8,18 @@ Le client commande dans l'application. Un agent KDExpress achète les articles d
 
 En développement.
 
-| Étape                                          | État    |
-| ---------------------------------------------- | ------- |
-| Base de données (28 tables, contraintes, vues) | Fait    |
-| Catalogue en lecture                           | Fait    |
-| Authentification et rôles                      | Fait    |
-| Panier et commandes                            | Fait    |
-| Paiements et avoirs                            | Fait    |
-| Achats à Dubaï, expédition, retrait            | Fait    |
-| Gestion du catalogue et boutiques partenaires  | Fait    |
-| Tests automatiques                             | Fait    |
-| Envoi des photos                               | Fait    |
-| Étiquettes QR des colis                        | À faire |
+| Étape                                          | État |
+| ---------------------------------------------- | ---- |
+| Base de données (28 tables, contraintes, vues) | Fait |
+| Catalogue en lecture                           | Fait |
+| Authentification et rôles                      | Fait |
+| Panier et commandes                            | Fait |
+| Paiements et avoirs                            | Fait |
+| Achats à Dubaï, expédition, retrait            | Fait |
+| Gestion du catalogue et boutiques partenaires  | Fait |
+| Tests automatiques                             | Fait |
+| Envoi des photos                               | Fait |
+| Étiquettes QR des colis                        | Fait |
 
 ## Technologies
 
@@ -238,6 +238,21 @@ curl -X POST http://localhost:3000/admin/produits/1/photos \
 - 10 photos au plus par produit et par colis. Des envois simultanés passent l'un après l'autre.
 - Les photos de produits sont publiques : `/fichiers/produits/<nom>.webp`. Les photos de colis sont privées : `/colis/:id/photos/:idPhoto`, pour le personnel et le client du colis (404 pour un autre client).
 
+## Étiquettes QR des colis
+
+À Dubaï, l'agent imprime une étiquette par colis (PDF, 10 × 15 cm) et la colle dessus. À Kinshasa, l'agent du bureau scanne le QR pour pointer le colis.
+
+| Méthode | Route                  | Accès                  | Rôle                                                         |
+| ------- | ---------------------- | ---------------------- | ------------------------------------------------------------ |
+| GET     | `/colis/:id/etiquette` | agent_dubai, direction | Étiquette d'un colis (PDF)                                   |
+| GET     | `/lots/:id/etiquettes` | agent_dubai, direction | Toutes les étiquettes d'un lot, une par page                 |
+| POST    | `/colis/pointage-scan` | agent_bureau           | Pointer le colis du QR scanné : `{ "code": "KDX-C-123-7Q" }` |
+
+- Le QR contient `KDX-C-<numéro du colis>-<clé de contrôle>`. Un code abîmé, modifié ou étranger est refusé (400).
+- L'étiquette montre le numéro de commande, le rang du colis (« 2 / 3 »), le poids, le lot et l'agence de transport.
+- Le client y figure en abrégé (« Marie K. •••• 4521 »). **Le code de retrait n'y figure jamais.**
+- Le pointage par scan suit les mêmes règles que `POST /colis/:id/pointage`.
+
 ## Structure
 
 ```
@@ -264,6 +279,7 @@ src/
   expedition/         colis, lots, départ, arrivée, pointage
   retraits/           remise des colis au client
   avis/               avis sur le service
+  etiquettes/         étiquettes PDF avec QR, pointage par scan
   fichiers/           réception, vérification, compression et rangement des photos
   commun/             outils partagés (transactions et essais automatiques, rôles)
 ```
