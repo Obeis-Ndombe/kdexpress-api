@@ -6,9 +6,13 @@ import {
 } from '@nestjs/common';
 import { Prisma, StatutProduit } from '@prisma/client';
 import { avecEssais, SERIALISABLE } from '../commun/transaction.js';
+import { PHOTOS_MAX, PhotoRecue, preparerPhoto } from '../fichiers/images.js';
+import {
+  StockageService,
+  urlPhotoProduit,
+} from '../fichiers/stockage.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
-  AjouterPhotoDto,
   CreerProduitDto,
   DefinirPaliersDto,
   ModifierProduitDto,
@@ -71,7 +75,10 @@ export interface OrigineBoutique {
 
 @Injectable()
 export class ProduitsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stockage: StockageService,
+  ) {}
 
   // GET /admin/produits?statut=propose : tous les statuts, contrairement au catalogue public
   async lister(
@@ -95,7 +102,9 @@ export class ProduitsService {
       statut: p.statutProduit,
       categorie: p.categorie.nomCategorie,
       marque: p.marque?.nomMarque ?? null,
-      photo: p.photos[0]?.fichierPhotoProduit ?? null,
+      photo: p.photos[0]
+        ? urlPhotoProduit(p.photos[0].fichierPhotoProduit)
+        : null,
       nombreVariantes: p._count.variantes,
       idBoutiqueOrigine: p.idBoutiqueOrigine,
     }));
@@ -150,12 +159,6 @@ export class ProduitsService {
         idCategorie: dto.idCategorie,
         idMarque: dto.idMarque,
         idBoutiqueOrigine: origine?.idBoutique,
-        photos: {
-          create: (dto.photos ?? []).map((fichier, i) => ({
-            fichierPhotoProduit: fichier,
-            ordreAffichage: i + 1,
-          })),
-        },
         caracteristiques: {
           create: (dto.caracteristiques ?? []).map((c) => ({
             idCaracteristique: c.idCaracteristique,
@@ -367,33 +370,84 @@ export class ProduitsService {
 
   // ------- photos -------
 
-  // POST /admin/produits/:id/photos : ajoutée à la fin, dans l'ordre d'affichage
-  async ajouterPhoto(idProduit: number, dto: AjouterPhotoDto) {
-    await avecEssais(
-      () =>
-        this.prisma.$transaction(async (tx) => {
-          const produit = await tx.produit.findUnique({ where: { idProduit } });
-          if (!produit) {
-            throw new NotFoundException(`Produit ${idProduit} introuvable`);
-          }
-          const derniere = await tx.photoProduit.aggregate({
-            where: { idProduit },
-            _max: { ordreAffichage: true },
-          });
-          await tx.photoProduit.create({
-            data: {
-              idProduit,
-              fichierPhotoProduit: dto.fichier,
-              ordreAffichage: (derniere._max.ordreAffichage ?? 0) + 1,
-            },
-          });
-        }, SERIALISABLE),
-      'Ajout en conflit avec un autre, réessayez',
-    );
+  // POST /admin/produits/:id/photos : la photo est vérifiée, compressée, rangée,
+  // puis ajoutée à la fin dans l'ordre d'affichage.
+  // Avec « pourBoutique » : seulement sur une proposition de cette boutique encore en attente.
+  async ajouterPhoto(
+    idProduit: number,
+    photo: PhotoRecue | undefined,
+    pourBoutique?: number,
+  ) {
+    await this.produitPourPhoto(this.prisma, idProduit, pourBoutique);
+    const image = await preparerPhoto(photo);
+    const fichier = await this.stockage.enregistrer('produits', image);
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Verrou sur la ligne du produit : les photos envoyées en même temps
+        // (sélection multiple dans l'appli) passent l'une après l'autre, sans conflit
+        await tx.$queryRaw`SELECT 1 FROM produit WHERE id_produit = ${idProduit} FOR UPDATE`;
+        // on revérifie : le produit a pu changer pendant la compression
+        await this.produitPourPhoto(tx, idProduit, pourBoutique);
+        const photos = await tx.photoProduit.aggregate({
+          where: { idProduit },
+          _max: { ordreAffichage: true },
+          _count: true,
+        });
+        if (photos._count >= PHOTOS_MAX) {
+          throw new BadRequestException(
+            `${PHOTOS_MAX} photos au plus par produit`,
+          );
+        }
+        await tx.photoProduit.create({
+          data: {
+            idProduit,
+            fichierPhotoProduit: fichier,
+            ordreAffichage: (photos._max.ordreAffichage ?? 0) + 1,
+          },
+        });
+      });
+    } catch (erreur) {
+      await this.stockage.supprimer(fichier); // rien en base : pas de fichier orphelin
+      throw erreur;
+    }
     return this.detail(idProduit);
   }
 
+  // DELETE /admin/photos/:id : en base, puis sur le disque
+  async supprimerPhoto(idPhoto: number) {
+    const photo = await this.prisma.photoProduit
+      .delete({ where: { idPhotoProduit: idPhoto } })
+      .catch((erreur: unknown) => {
+        if (estErreurPrisma(erreur, 'P2025')) {
+          throw new NotFoundException(`Photo ${idPhoto} introuvable`);
+        }
+        throw erreur;
+      });
+    await this.stockage.supprimer(photo.fichierPhotoProduit);
+    return this.detail(photo.idProduit);
+  }
+
   // ------- outils internes -------
+
+  // Le produit peut-il recevoir une photo ? (404 s'il n'existe pas ou n'est pas à cette boutique)
+  private async produitPourPhoto(
+    client: Prisma.TransactionClient,
+    idProduit: number,
+    pourBoutique?: number,
+  ) {
+    const produit = await client.produit.findUnique({ where: { idProduit } });
+    if (
+      !produit ||
+      (pourBoutique !== undefined && produit.idBoutiqueOrigine !== pourBoutique)
+    ) {
+      throw new NotFoundException(`Produit ${idProduit} introuvable`);
+    }
+    if (pourBoutique !== undefined && produit.statutProduit !== 'propose') {
+      throw new BadRequestException(
+        `Un produit « ${produit.statutProduit} » n'est plus modifiable par la boutique`,
+      );
+    }
+  }
 
   private async verifierMarque(idMarque?: number) {
     if (idMarque === undefined) {
@@ -488,7 +542,7 @@ export class ProduitsService {
       idBoutiqueOrigine: p.idBoutiqueOrigine,
       photos: p.photos.map((ph) => ({
         idPhoto: ph.idPhotoProduit,
-        fichier: ph.fichierPhotoProduit,
+        url: urlPhotoProduit(ph.fichierPhotoProduit),
         ordre: ph.ordreAffichage,
       })),
       caracteristiques: p.caracteristiques.map((c) => ({

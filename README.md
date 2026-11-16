@@ -8,15 +8,18 @@ Le client commande dans l'application. Un agent KDExpress achète les articles d
 
 En développement.
 
-| Étape                                          | État |
-| ---------------------------------------------- | ---- |
-| Base de données (28 tables, contraintes, vues) | Fait |
-| Catalogue en lecture                           | Fait |
-| Authentification et rôles                      | Fait |
-| Panier et commandes                            | Fait |
-| Paiements et avoirs                            | Fait |
-| Achats à Dubaï, expédition, retrait            | Fait |
-| Gestion du catalogue et boutiques partenaires  | Fait |
+| Étape                                          | État    |
+| ---------------------------------------------- | ------- |
+| Base de données (28 tables, contraintes, vues) | Fait    |
+| Catalogue en lecture                           | Fait    |
+| Authentification et rôles                      | Fait    |
+| Panier et commandes                            | Fait    |
+| Paiements et avoirs                            | Fait    |
+| Achats à Dubaï, expédition, retrait            | Fait    |
+| Gestion du catalogue et boutiques partenaires  | Fait    |
+| Tests automatiques                             | Fait    |
+| Envoi des photos                               | Fait    |
+| Étiquettes QR des colis                        | À faire |
 
 ## Technologies
 
@@ -42,6 +45,7 @@ Crée un fichier `.env` à la racine (voir `.env.example`) :
 DATABASE_URL="postgresql://postgres:<mot_de_passe>@localhost:5432/kdexpress"
 JWT_SECRET="<un secret aléatoire de 64 caractères>"
 JWT_DUREE_SECONDES=86400
+DOSSIER_FICHIERS="fichiers"
 ```
 
 Pour générer un secret : `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
@@ -107,7 +111,8 @@ Une inscription crée toujours un `client` ; les autres comptes sont créés par
 | GET     | `/expedition/a-emballer`                   | agent_dubai, direction                                  | Commandes achetées avec des articles à emballer                                            |
 | POST    | `/colis`                                   | agent_dubai                                             | Créer un colis pour une commande (contenu, poids)                                          |
 | PATCH   | `/colis/:id`                               | agent_dubai                                             | Peser un colis avant son départ                                                            |
-| POST    | `/colis/:id/photos`                        | agent_dubai                                             | Ajouter une photo (nom du fichier)                                                         |
+| POST    | `/colis/:id/photos`                        | agent_dubai                                             | Envoyer une photo du colis emballé (voir _Photos_)                                         |
+| GET     | `/colis/:id/photos/:idPhoto`               | personnel, client du colis                              | Afficher une photo de colis (privée)                                                       |
 | POST    | `/colis/:id/pointage`                      | agent_bureau                                            | Pointer un colis reçu au bureau de Kinshasa                                                |
 | GET     | `/lots`, `/lots/:id`                       | agents, direction                                       | Lots d'expédition et leurs colis                                                           |
 | POST    | `/lots`                                    | agent_dubai                                             | Créer un lot pour une agence, avec ses colis                                               |
@@ -149,7 +154,7 @@ Le suivi d'une commande avance tout seul, étape par étape, chaque étape une s
 
 - Un article introuvable est signalé par l'agent ; la direction le rembourse en avoir (article + part du transport payé). Le client n'a aucun choix à faire.
 - Une commande peut avoir plusieurs colis ; un colis n'appartient qu'à une commande ; un lot regroupe des colis de plusieurs commandes.
-- Les photos des colis sont enregistrées par leur nom de fichier ; l'envoi réel de fichiers viendra plus tard.
+- Le détail d'une commande montre ses colis et les adresses de leurs photos.
 
 ## Gestion du catalogue (direction)
 
@@ -163,11 +168,12 @@ Toutes ces routes sont réservées à la direction. Le catalogue public (`/catal
 | PUT     | `/admin/categories/:id/caracteristiques`                         | Caractéristiques prévues pour la catégorie (`description` ou `choix_variante`) |
 | GET     | `/admin/produits?statut=propose&categorie=1&marque=2`            | Tous les produits, quel que soit leur statut                                   |
 | GET     | `/admin/produits/:id`                                            | Détail complet, avec les offres des boutiques et la marge de chaque variante   |
-| POST    | `/admin/produits`                                                | Créer un produit complet (variantes, options, paliers, photos)                 |
+| POST    | `/admin/produits`                                                | Créer un produit complet (variantes, options, paliers)                         |
 | PATCH   | `/admin/produits/:id`                                            | Changer le nom, la description ou la marque                                    |
 | POST    | `/admin/produits/:id/publier`, `/refuser`, `/retirer`            | Changer le statut                                                              |
 | POST    | `/admin/produits/:id/variantes`                                  | Ajouter une variante                                                           |
-| POST    | `/admin/produits/:id/photos`                                     | Ajouter une photo (nom de fichier)                                             |
+| POST    | `/admin/produits/:id/photos`                                     | Envoyer une photo (voir _Photos_)                                              |
+| DELETE  | `/admin/photos/:id`                                              | Supprimer une photo (en base et sur le disque)                                 |
 | PATCH   | `/admin/variantes/:id`                                           | Changer le prix, le poids, le libellé, ou mettre en vente / retirer            |
 | PUT     | `/admin/variantes/:id/paliers`                                   | Remplacer tous les paliers de prix d'une variante                              |
 
@@ -211,6 +217,27 @@ La **marge** est ce que gagne KDExpress : `prix catalogue − prix boutique`, ex
 - Un fournisseur ne voit que ses boutiques (404 pour celle d'un autre).
 - La liste d'achats de l'agent affiche les offres disponibles, la moins chère d'abord.
 
+## Photos
+
+Les photos sont envoyées en `multipart/form-data`, le fichier dans le champ **`photo`** :
+
+```bash
+curl -X POST http://localhost:3000/admin/produits/1/photos \
+  -H "Authorization: Bearer <jeton>" -F "photo=@parfum.jpg"
+```
+
+| Route                                                        | Accès       | Rôle                                      |
+| ------------------------------------------------------------ | ----------- | ----------------------------------------- |
+| POST `/admin/produits/:id/photos`                            | direction   | Photo de produit                          |
+| POST `/fournisseur/boutiques/:id/produits/:idProduit/photos` | fournisseur | Photo d'une proposition encore en attente |
+| POST `/colis/:id/photos`                                     | agent_dubai | Photo du colis emballé                    |
+
+- Formats acceptés : JPEG, PNG, WebP, 8 Mo au plus. Le contenu est vérifié, pas seulement l'extension.
+- Chaque photo est redressée, réduite à 1600 px, convertie en WebP et débarrassée de ses métadonnées (dont la position GPS).
+- Elle est rangée sous un nom tiré au hasard dans le dossier `DOSSIER_FICHIERS` (exclu de Git).
+- 10 photos au plus par produit et par colis. Des envois simultanés passent l'un après l'autre.
+- Les photos de produits sont publiques : `/fichiers/produits/<nom>.webp`. Les photos de colis sont privées : `/colis/:id/photos/:idPhoto`, pour le personnel et le client du colis (404 pour un autre client).
+
 ## Structure
 
 ```
@@ -237,7 +264,8 @@ src/
   expedition/         colis, lots, départ, arrivée, pointage
   retraits/           remise des colis au client
   avis/               avis sur le service
-  commun/             outils partagés (transactions et essais automatiques)
+  fichiers/           réception, vérification, compression et rangement des photos
+  commun/             outils partagés (transactions et essais automatiques, rôles)
 ```
 
 ## Commandes utiles

@@ -118,18 +118,6 @@ export class CreerProduitDto {
   @ValidateNested({ each: true })
   @Type(() => VarianteDto)
   variantes: VarianteDto[];
-
-  // noms de fichiers, dans l'ordre d'affichage
-  @IsOptional()
-  @IsArray({ message: 'photos doit être une liste' })
-  @ArrayMaxSize(10, { message: '10 photos au plus' })
-  @Transform(({ value }: { value: unknown }) =>
-    Array.isArray(value) ? value.map((v) => nettoyer({ value: v })) : value,
-  )
-  @IsString({ each: true, message: 'Chaque photo est un nom de fichier' })
-  @IsNotEmpty({ each: true, message: 'Un nom de photo ne peut pas être vide' })
-  @MaxLength(500, { each: true })
-  photos?: string[];
 }
 
 // PATCH /admin/produits/:id : ce qui change (idMarque: null retire la marque)
@@ -183,13 +171,4 @@ export class DefinirPaliersDto {
   @ValidateNested({ each: true })
   @Type(() => PalierDto)
   paliers: PalierDto[];
-}
-
-// POST /admin/produits/:id/photos
-export class AjouterPhotoDto {
-  @Transform(nettoyer)
-  @IsString({ message: 'Le fichier doit être un texte' })
-  @IsNotEmpty({ message: 'Le nom du fichier est obligatoire' })
-  @MaxLength(500, { message: 'Le nom du fichier fait 500 caractères au plus' })
-  fichier: string;
 }

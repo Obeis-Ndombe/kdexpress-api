@@ -7,11 +7,14 @@ import {
   Patch,
   Post,
   Put,
+  UploadedFile,
 } from '@nestjs/common';
 import type { UtilisateurConnecte } from '../auth/auth.types.js';
 import { Roles } from '../auth/decorateurs/roles.decorator.js';
 import { Utilisateur } from '../auth/decorateurs/utilisateur-connecte.decorator.js';
 import { OffreDto } from '../boutiques/dto/offre.dto.js';
+import { EnvoiPhoto } from '../fichiers/envoi-photo.decorator.js';
+import type { PhotoRecue } from '../fichiers/images.js';
 import {
   ModifierPropositionDto,
   PropositionProduitDto,
@@ -58,6 +61,18 @@ export class FournisseurController {
       idProduit,
       dto,
     );
+  }
+
+  // multipart/form-data, la photo dans le champ « photo »
+  @Post(':id/produits/:idProduit/photos')
+  @EnvoiPhoto()
+  ajouterPhoto(
+    @Utilisateur() u: UtilisateurConnecte,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('idProduit', ParseIntPipe) idProduit: number,
+    @UploadedFile() photo?: PhotoRecue,
+  ) {
+    return this.fournisseur.ajouterPhoto(u.idUtilisateur, id, idProduit, photo);
   }
 
   @Get(':id/offres')

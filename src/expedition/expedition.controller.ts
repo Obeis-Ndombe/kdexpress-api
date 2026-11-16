@@ -7,8 +7,13 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  UploadedFile,
 } from '@nestjs/common';
+import type { UtilisateurConnecte } from '../auth/auth.types.js';
 import { Roles } from '../auth/decorateurs/roles.decorator.js';
+import { Utilisateur } from '../auth/decorateurs/utilisateur-connecte.decorator.js';
+import { EnvoiPhoto } from '../fichiers/envoi-photo.decorator.js';
+import type { PhotoRecue } from '../fichiers/images.js';
 import { CreerColisDto, PeserColisDto } from './dto/creer-colis.dto.js';
 import {
   AjouterColisDto,
@@ -16,8 +21,8 @@ import {
   CreerLotDto,
   DepartLotDto,
 } from './dto/lot.dto.js';
-import { PhotoColisDto } from './dto/photo-colis.dto.js';
 import { ExpeditionService } from './expedition.service.js';
+import { PhotosColisService } from './photos-colis.service.js';
 
 // GET /expedition/a-emballer
 @Controller('expedition')
@@ -34,7 +39,10 @@ export class ExpeditionController {
 // Les colis : préparés à Dubaï, pointés à Kinshasa
 @Controller('colis')
 export class ColisController {
-  constructor(private readonly expedition: ExpeditionService) {}
+  constructor(
+    private readonly expedition: ExpeditionService,
+    private readonly photos: PhotosColisService,
+  ) {}
 
   // POST /colis
   @Roles('agent_dubai')
@@ -53,14 +61,26 @@ export class ColisController {
     return this.expedition.peser(idColis, dto.poidsReelKg);
   }
 
-  // POST /colis/:id/photos
+  // POST /colis/:id/photos : multipart/form-data, la photo dans le champ « photo »
   @Roles('agent_dubai')
   @Post(':id/photos')
+  @EnvoiPhoto()
   ajouterPhoto(
     @Param('id', ParseIntPipe) idColis: number,
-    @Body() dto: PhotoColisDto,
+    @UploadedFile() photo?: PhotoRecue,
   ) {
-    return this.expedition.ajouterPhoto(idColis, dto.fichier);
+    return this.photos.ajouter(idColis, photo);
+  }
+
+  // GET /colis/:id/photos/:idPhoto : l'image (personnel, ou client du colis)
+  @Roles('agent_dubai', 'agent_bureau', 'direction', 'client', 'revendeur')
+  @Get(':id/photos/:idPhoto')
+  lirePhoto(
+    @Param('id', ParseIntPipe) idColis: number,
+    @Param('idPhoto', ParseIntPipe) idPhoto: number,
+    @Utilisateur() utilisateur: UtilisateurConnecte,
+  ) {
+    return this.photos.lire(idColis, idPhoto, utilisateur);
   }
 
   // POST /colis/:id/pointage

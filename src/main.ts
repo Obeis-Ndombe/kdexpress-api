@@ -1,9 +1,21 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
+import { StockageService } from './fichiers/stockage.service.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Les photos de produits sont publiques, comme le catalogue : /fichiers/produits/xxx.webp
+  // (les photos de colis, privées, passent par une route protégée)
+  app.useStaticAssets(app.get(StockageService).dossier('produits'), {
+    prefix: '/fichiers/produits/',
+    index: false,
+    dotfiles: 'deny',
+    maxAge: '30d', // un nom de fichier ne sert qu'une fois : le navigateur peut le garder
+    immutable: true,
+  });
 
   // Vérifie automatiquement chaque corps de requête avec les règles des DTO
   app.useGlobalPipes(

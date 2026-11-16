@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseEnumPipe,
@@ -9,11 +10,13 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
 } from '@nestjs/common';
 import { StatutProduit } from '@prisma/client';
 import { Roles } from '../auth/decorateurs/roles.decorator.js';
+import { EnvoiPhoto } from '../fichiers/envoi-photo.decorator.js';
+import type { PhotoRecue } from '../fichiers/images.js';
 import {
-  AjouterPhotoDto,
   CreerProduitDto,
   DefinirPaliersDto,
   ModifierProduitDto,
@@ -80,12 +83,19 @@ export class ProduitsController {
     return this.produits.ajouterVariante(id, dto);
   }
 
+  // multipart/form-data, la photo dans le champ « photo »
   @Post('produits/:id/photos')
+  @EnvoiPhoto()
   ajouterPhoto(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AjouterPhotoDto,
+    @UploadedFile() photo?: PhotoRecue,
   ) {
-    return this.produits.ajouterPhoto(id, dto);
+    return this.produits.ajouterPhoto(id, photo);
+  }
+
+  @Delete('photos/:id')
+  supprimerPhoto(@Param('id', ParseIntPipe) id: number) {
+    return this.produits.supprimerPhoto(id);
   }
 
   @Patch('variantes/:id')

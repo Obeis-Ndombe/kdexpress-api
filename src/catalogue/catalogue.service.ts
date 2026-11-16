@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { urlPhotoProduit } from '../fichiers/stockage.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 // Un prix affiché au client : en dirhams et en dollars
@@ -46,7 +47,7 @@ export class CatalogueService {
       nom: p.nomProduit,
       marque: p.marque?.nomMarque ?? null,
       categorie: p.categorie.nomCategorie,
-      photo: p.photos[0]?.fichierPhotoProduit ?? null,
+      photo: p.photos[0] ? urlPhotoProduit(p.photos[0].fichierPhotoProduit) : null,
       // le prix « à partir de » est celui de la variante la moins chère, si elle existe
       prixAPartirDe: p.variantes[0] ? this.prix(p.variantes[0].prixCatalogueAed, taux) : null,
     }));
@@ -84,7 +85,7 @@ export class CatalogueService {
       description: p.descriptionProduit,
       marque: p.marque?.nomMarque ?? null,
       categorie: p.categorie.nomCategorie,
-      photos: p.photos.map((photo) => photo.fichierPhotoProduit),
+      photos: p.photos.map((photo) => urlPhotoProduit(photo.fichierPhotoProduit)),
       caracteristiques: p.caracteristiques.map((c) => ({
         nom: c.caracteristique.nomCaracteristique,
         valeur: this.avecUnite(c.valeur, c.caracteristique.uniteMesure),
