@@ -20,6 +20,7 @@ En développement.
 | Tests automatiques                             | Fait |
 | Envoi des photos                               | Fait |
 | Étiquettes QR des colis                        | Fait |
+| Protections pour la mise en ligne              | Fait |
 
 ## Technologies
 
@@ -253,6 +254,32 @@ curl -X POST http://localhost:3000/admin/produits/1/photos \
 - Le client y figure en abrégé (« Marie K. •••• 4521 »). **Le code de retrait n'y figure jamais.**
 - Le pointage par scan suit les mêmes règles que `POST /colis/:id/pointage`.
 
+## Protections
+
+| Protection                   | Ce qu'elle fait                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Limites d'essais             | 120 requêtes par minute (par utilisateur connecté, sinon par adresse). Au-delà : 429                 |
+| Connexion                    | 5 essais par minute pour un même email depuis une même adresse, 20 par adresse tous emails confondus |
+| Inscription                  | 10 par minute et par adresse                                                                         |
+| Codes de retrait             | 20 par minute et par agent                                                                           |
+| En-têtes de sécurité         | Ajoutés à chaque réponse (`helmet`)                                                                  |
+| Sites autorisés (CORS)       | Seuls les sites de `ORIGINES_AUTORISEES` peuvent appeler l'API depuis un navigateur                  |
+| Contrôle de la configuration | Au démarrage : `DATABASE_URL`, `JWT_SECRET` (32 caractères au moins)… L'API refuse de démarrer sinon |
+| Erreurs imprévues            | Le client reçoit « Erreur interne » et une référence ; le détail reste dans le journal du serveur    |
+| Santé                        | `GET /` vérifie aussi la base de données (503 si elle ne répond pas)                                 |
+
+Variables pour la mise en ligne :
+
+```env
+NODE_ENV=production
+ORIGINES_AUTORISEES="https://app.kdexpress.cd,https://admin.kdexpress.cd"
+PROXYS_DE_CONFIANCE=1
+```
+
+- `ORIGINES_AUTORISEES` est obligatoire en production. Sans elle, en développement, tous les sites sont acceptés.
+- `PROXYS_DE_CONFIANCE` : le nombre de proxys de l'hébergeur devant l'API. Sans ce réglage, tous les clients sembleraient venir de la même adresse et se bloqueraient entre eux.
+- Les compteurs sont gardés en mémoire : c'est valable pour un seul serveur.
+
 ## Structure
 
 ```
@@ -281,7 +308,7 @@ src/
   avis/               avis sur le service
   etiquettes/         étiquettes PDF avec QR, pointage par scan
   fichiers/           réception, vérification, compression et rangement des photos
-  commun/             outils partagés (transactions et essais automatiques, rôles)
+  commun/             outils partagés : transactions, rôles, limites d'essais, contrôle du .env, filtre d'erreurs
 ```
 
 ## Commandes utiles

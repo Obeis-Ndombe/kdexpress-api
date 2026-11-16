@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { verifierConfiguration } from './commun/configuration.js';
+import { ErreursFilter } from './commun/erreurs.filter.js';
+import { LIMITES } from './commun/limites.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { CatalogueModule } from './catalogue/catalogue.module.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -22,7 +27,9 @@ import { EtiquettesModule } from './etiquettes/etiquettes.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }), // lit le fichier .env
+    // lit le fichier .env et le contrôle : l'API refuse de démarrer s'il est incomplet
+    ConfigModule.forRoot({ isGlobal: true, validate: verifierConfiguration }),
+    ThrottlerModule.forRoot(LIMITES), // les limites d'essais (voir commun/limites.ts)
     PrismaModule,
     FichiersModule,
     CatalogueModule,
@@ -42,6 +49,6 @@ import { EtiquettesModule } from './etiquettes/etiquettes.module.js';
     EtiquettesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_FILTER, useClass: ErreursFilter }],
 })
 export class AppModule {}

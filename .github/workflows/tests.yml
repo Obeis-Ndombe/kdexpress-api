@@ -28,7 +28,7 @@ jobs:
     # De fausses valeurs, propres à cette machine de test (ce ne sont pas les vrais secrets)
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kdexpress
-      JWT_SECRET: secret-de-test-uniquement
+      JWT_SECRET: secret-de-test-uniquement-pas-le-vrai-0123456789
       JWT_DUREE_SECONDES: 86400
 
     steps:
