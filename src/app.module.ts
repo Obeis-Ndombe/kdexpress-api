@@ -24,6 +24,7 @@ import { AdminCatalogueModule } from './admin-catalogue/admin-catalogue.module.j
 import { FournisseurModule } from './fournisseur/fournisseur.module.js';
 import { FichiersModule } from './fichiers/fichiers.module.js';
 import { EtiquettesModule } from './etiquettes/etiquettes.module.js';
+import { ParametresModule } from './parametres/parametres.module.js';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { EtiquettesModule } from './etiquettes/etiquettes.module.js';
     AdminCatalogueModule,
     FournisseurModule,
     EtiquettesModule,
+    ParametresModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_FILTER, useClass: ErreursFilter }],

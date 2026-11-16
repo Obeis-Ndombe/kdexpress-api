@@ -21,6 +21,7 @@ En développement.
 | Envoi des photos                               | Fait |
 | Étiquettes QR des colis                        | Fait |
 | Protections pour la mise en ligne              | Fait |
+| Réglages par la direction                      | Fait |
 
 ## Technologies
 
@@ -254,6 +255,25 @@ curl -X POST http://localhost:3000/admin/produits/1/photos \
 - Le client y figure en abrégé (« Marie K. •••• 4521 »). **Le code de retrait n'y figure jamais.**
 - Le pointage par scan suit les mêmes règles que `POST /colis/:id/pointage`.
 
+## Réglages (direction)
+
+Le taux de change, le transport, les frais de service, la marge et les délais se règlent sans toucher à la base.
+
+| Méthode | Route               | Rôle                                                       |
+| ------- | ------------------- | ---------------------------------------------------------- |
+| GET     | `/admin/parametres` | Tous les réglages, avec leur valeur et ce qu'ils acceptent |
+| PATCH   | `/admin/parametres` | Modifier un ou plusieurs réglages ensemble                 |
+
+```json
+{ "modifications": [{ "code": "taux_change_aed_usd", "valeur": "0.2725" }] }
+```
+
+- Chaque réglage a sa règle (bornes, décimales, choix possibles) : un taux de change de `27` est refusé.
+- Les modifications d'une requête passent toutes, ou aucune.
+- Les réglages doivent rester cohérents : passer le transport au `poids` exige un prix du kilo, à donner dans la même requête.
+- Un changement ne touche que les futures commandes ; les commandes passées gardent leurs montants figés.
+- Chaque changement est écrit dans le journal du serveur (ancienne valeur, nouvelle valeur, auteur).
+
 ## Protections
 
 | Protection                   | Ce qu'elle fait                                                                                      |
@@ -306,6 +326,7 @@ src/
   expedition/         colis, lots, départ, arrivée, pointage
   retraits/           remise des colis au client
   avis/               avis sur le service
+  parametres/         réglages de la direction et leurs règles
   etiquettes/         étiquettes PDF avec QR, pointage par scan
   fichiers/           réception, vérification, compression et rangement des photos
   commun/             outils partagés : transactions, rôles, limites d'essais, contrôle du .env, filtre d'erreurs
