@@ -82,17 +82,6 @@ export class PropositionProduitDto {
   @ValidateNested({ each: true })
   @Type(() => VariantePropositionDto)
   variantes: VariantePropositionDto[];
-
-  @IsOptional()
-  @IsArray({ message: 'photos doit être une liste' })
-  @ArrayMaxSize(10, { message: '10 photos au plus' })
-  @Transform(({ value }: { value: unknown }) =>
-    Array.isArray(value) ? value.map((v) => nettoyer({ value: v })) : value,
-  )
-  @IsString({ each: true, message: 'Chaque photo est un nom de fichier' })
-  @IsNotEmpty({ each: true, message: 'Un nom de photo ne peut pas être vide' })
-  @MaxLength(500, { each: true })
-  photos?: string[];
 }
 
 // PATCH /fournisseur/boutiques/:id/produits/:idProduit : tant que la proposition est en attente

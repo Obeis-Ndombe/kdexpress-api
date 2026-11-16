@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, RoleUtilisateur } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type { UtilisateurConnecte } from '../auth/auth.types.js';
 import {
   genererCodeRetrait,
@@ -16,6 +16,7 @@ import { articlesEnUsd, resteAPayer } from './montants.js';
 import { DemandeCommandeDto } from './dto/demande-commande.dto.js';
 import { Chiffrage, TarificationService } from './tarification.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PERSONNEL } from '../commun/roles.js';
 
 type Decimal = Prisma.Decimal;
 
@@ -24,13 +25,6 @@ const ESSAIS_CODE_RETRAIT = 5;
 
 // Nombre de commandes par page dans la liste
 const PAR_PAGE = 20;
-
-// Les rôles qui voient TOUTES les commandes
-const PERSONNEL: RoleUtilisateur[] = [
-  'agent_dubai',
-  'agent_bureau',
-  'direction',
-];
 
 // Les lignes d'une commande, avec les noms du produit et de la variante
 const LIGNES = {
@@ -69,6 +63,10 @@ const INCLUDE_DETAIL = {
     include: { etape: true },
   },
   paiements: { orderBy: { datePaiement: 'asc' } },
+  colis: {
+    orderBy: { idColis: 'asc' },
+    include: { photos: { orderBy: { idPhotoColis: 'asc' } } },
+  },
 } satisfies Prisma.CommandeInclude;
 
 // Une commande enregistrée avec ses lignes (le type est déduit de LIGNES par Prisma)
@@ -221,6 +219,15 @@ export class CommandesService {
         soldeRetraitUsd: reste.soldeRetrait.toFixed(2),
         totalUsd: reste.total.toFixed(2),
       },
+      // les colis et leurs photos : le client voit sa marchandise emballée à Dubaï
+      colis: c.colis.map((co) => ({
+        idColis: co.idColis,
+        statut: co.statutColis,
+        poidsReelKg: co.poidsReelKg?.toFixed(3) ?? null,
+        photos: co.photos.map(
+          (ph) => `/colis/${co.idColis}/photos/${ph.idPhotoColis}`,
+        ),
+      })),
     };
   }
 

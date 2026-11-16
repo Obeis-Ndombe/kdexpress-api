@@ -13,6 +13,8 @@ import {
 } from '../admin-catalogue/regles-catalogue.js';
 import { OffreDto } from '../boutiques/dto/offre.dto.js';
 import { OffresService } from '../boutiques/offres.service.js';
+import type { PhotoRecue } from '../fichiers/images.js';
+import { urlPhotoProduit } from '../fichiers/stockage.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   ModifierPropositionDto,
@@ -85,7 +87,6 @@ export class FournisseurService {
       idCategorie: dto.idCategorie,
       idMarque: dto.idMarque,
       caracteristiques: dto.caracteristiques,
-      photos: dto.photos,
       variantes: dto.variantes.map((v, i) => ({
         libelle: v.libelle,
         prixCatalogueAed: prixAvecMarge(prixBoutique[i], marge).toFixed(2),
@@ -142,6 +143,18 @@ export class FournisseurService {
     return this.uneProposition(idBoutique, idProduit);
   }
 
+  // POST /fournisseur/boutiques/:id/produits/:idProduit/photos : tant que la proposition est en attente
+  async ajouterPhoto(
+    idUtilisateur: number,
+    idBoutique: number,
+    idProduit: number,
+    photo: PhotoRecue | undefined,
+  ) {
+    await this.saBoutique(idUtilisateur, idBoutique, true);
+    await this.produits.ajouterPhoto(idProduit, photo, idBoutique);
+    return this.uneProposition(idBoutique, idProduit);
+  }
+
   // GET /fournisseur/boutiques/:id/offres
   async mesOffres(idUtilisateur: number, idBoutique: number) {
     await this.saBoutique(idUtilisateur, idBoutique, false);
@@ -183,6 +196,7 @@ export class FournisseurService {
 const INCLUSION_PROPOSITION = (idBoutique: number) =>
   ({
     categorie: { select: { nomCategorie: true } },
+    photos: { orderBy: { ordreAffichage: 'asc' } },
     variantes: {
       orderBy: { idVariante: 'asc' },
       include: { offres: { where: { idBoutique } } },
@@ -200,6 +214,7 @@ function presenterProposition(p: Proposition) {
     description: p.descriptionProduit,
     categorie: p.categorie.nomCategorie,
     statut: p.statutProduit,
+    photos: p.photos.map((ph) => urlPhotoProduit(ph.fichierPhotoProduit)),
     variantes: p.variantes.map((v) => ({
       idVariante: v.idVariante,
       libelle: v.libelleVariante,

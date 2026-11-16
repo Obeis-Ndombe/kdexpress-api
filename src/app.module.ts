@@ -17,11 +17,14 @@ import { RetraitsModule } from './retraits/retraits.module.js';
 import { AvisModule } from './avis/avis.module.js';
 import { AdminCatalogueModule } from './admin-catalogue/admin-catalogue.module.js';
 import { FournisseurModule } from './fournisseur/fournisseur.module.js';
+import { FichiersModule } from './fichiers/fichiers.module.js';
+import { EtiquettesModule } from './etiquettes/etiquettes.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }), // lit le fichier .env
     PrismaModule,
+    FichiersModule,
     CatalogueModule,
     AuthModule,
     UtilisateursModule,
@@ -36,6 +39,7 @@ import { FournisseurModule } from './fournisseur/fournisseur.module.js';
     AvisModule,
     AdminCatalogueModule,
     FournisseurModule,
+    EtiquettesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

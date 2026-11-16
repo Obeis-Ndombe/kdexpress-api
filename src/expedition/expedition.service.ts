@@ -169,20 +169,6 @@ export class ExpeditionService {
     return this.presenterColis(this.prisma, idColis);
   }
 
-  // POST /colis/:id/photos
-  async ajouterPhoto(idColis: number, fichier: string) {
-    await this.colisOuErreur(idColis);
-    const photo = await this.prisma.photoColis.create({
-      data: { idColis, fichierPhotoColis: fichier },
-    });
-    return {
-      idPhotoColis: photo.idPhotoColis,
-      idColis,
-      fichier: photo.fichierPhotoColis,
-      date: photo.datePhotoColis,
-    };
-  }
-
   // POST /colis/:id/pointage : le bureau de Kinshasa a reçu ce colis
   pointer(idColis: number) {
     return this.prisma.$transaction(async (tx) => {
@@ -566,7 +552,7 @@ export class ExpeditionService {
             },
           },
         },
-        photos: { select: { fichierPhotoColis: true } },
+        photos: { select: { idPhotoColis: true } },
       },
     });
     return {
@@ -580,7 +566,9 @@ export class ExpeditionService {
         variante: x.ligneCommande.variante.libelleVariante,
         quantite: x.quantiteEmballee,
       })),
-      photos: c.photos.map((p) => p.fichierPhotoColis),
+      photos: c.photos.map(
+        (p) => `/colis/${c.idColis}/photos/${p.idPhotoColis}`,
+      ),
     };
   }
 }
