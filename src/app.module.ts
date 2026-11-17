@@ -25,6 +25,7 @@ import { FournisseurModule } from './fournisseur/fournisseur.module.js';
 import { FichiersModule } from './fichiers/fichiers.module.js';
 import { EtiquettesModule } from './etiquettes/etiquettes.module.js';
 import { ParametresModule } from './parametres/parametres.module.js';
+import { TableauDeBordModule } from './tableau-de-bord/tableau-de-bord.module.js';
 import { EmailsModule } from './emails/emails.module.js';
 
 @Module({
@@ -51,6 +52,7 @@ import { EmailsModule } from './emails/emails.module.js';
     FournisseurModule,
     EtiquettesModule,
     ParametresModule,
+    TableauDeBordModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_FILTER, useClass: ErreursFilter }],

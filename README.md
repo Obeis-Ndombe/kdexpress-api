@@ -23,6 +23,7 @@ En développement.
 | Protections pour la mise en ligne              | Fait |
 | Réglages par la direction                      | Fait |
 | Compte et e-mails                              | Fait |
+| Tableau de bord de la direction                | Fait |
 
 ## Technologies
 
@@ -279,6 +280,21 @@ EMAIL_EXPEDITEUR="KDExpress <contact@kdexpress.cd>"
 
 Sans `SMTP_URL`, les e-mails sont écrits dans le journal de l'API au lieu d'être envoyés. En production, les deux variables sont obligatoires.
 
+## Tableau de bord (direction)
+
+`GET /admin/tableau-de-bord?du=2026-11-01&au=2026-11-30` : les deux jours sont compris. Sans dates : les 30 derniers jours. Période de 366 jours au plus. Les journées sont celles de Kinshasa.
+
+| Bloc               | Contenu                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `commandes`        | Commandes créées, payées, expédiées, récupérées, annulées pendant la période                                                                     |
+| `encaissements`    | Argent reçu, par moyen et par objet. Les paiements par avoir sont comptés à part                                                                 |
+| `ventes`           | Valeur des commandes passées (articles, transport, frais de service), hors commandes annulées                                                    |
+| `marge`            | Articles achetés à Dubaï : prix payé par le client, prix payé à la boutique, marge                                                               |
+| `avoirs`           | Avoirs crédités et utilisés, et total dû aux clients aujourd'hui                                                                                 |
+| `meilleuresVentes` | Les 5 produits les plus commandés                                                                                                                |
+| `parJour`          | Une ligne par jour (commandes, argent reçu), pour tracer une courbe                                                                              |
+| `enCours`          | Maintenant : commandes par étape, articles à acheter, colis à expédier et en route, retraits en retard, produits à valider, boutiques à vérifier |
+
 ## Réglages (direction)
 
 Le taux de change, le transport, les frais de service, la marge et les délais se règlent sans toucher à la base.
@@ -351,6 +367,7 @@ src/
   retraits/           remise des colis au client
   avis/               avis sur le service
   emails/             envoi des e-mails, modèles, notifications de commande
+  tableau-de-bord/    chiffres de la direction
   parametres/         réglages de la direction et leurs règles
   etiquettes/         étiquettes PDF avec QR, pointage par scan
   fichiers/           réception, vérification, compression et rangement des photos
