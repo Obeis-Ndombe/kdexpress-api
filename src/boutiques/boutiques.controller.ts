@@ -4,7 +4,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseIntPipe,
   Post,
   Put,
 } from '@nestjs/common';
@@ -13,6 +12,7 @@ import { BoutiquesService } from './boutiques.service.js';
 import { CreerBoutiqueDto } from './dto/creer-boutique.dto.js';
 import { OffreDto } from './dto/offre.dto.js';
 import { OffresService } from './offres.service.js';
+import { ParseIdPipe } from '../commun/parse-id.pipe.js';
 
 @Roles('agent_dubai', 'direction')
 @Controller('boutiques')
@@ -36,7 +36,7 @@ export class BoutiquesController {
 
   // GET /boutiques/:id/offres : les prix notés pour cette boutique
   @Get(':id/offres')
-  async offres(@Param('id', ParseIntPipe) id: number) {
+  async offres(@Param('id', ParseIdPipe) id: number) {
     await this.boutiquesService.trouver(id);
     return this.offresService.lister(id);
   }
@@ -45,8 +45,8 @@ export class BoutiquesController {
   // Une boutique vérifiée tient elle-même ses prix : l'agent ne les écrase pas.
   @Put(':id/offres/:idVariante')
   async noterOffre(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('idVariante', ParseIntPipe) idVariante: number,
+    @Param('id', ParseIdPipe) id: number,
+    @Param('idVariante', ParseIdPipe) idVariante: number,
     @Body() dto: OffreDto,
   ) {
     const boutique = await this.boutiquesService.trouver(id);

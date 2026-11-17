@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import type { UtilisateurConnecte } from '../auth/auth.types.js';
 import { ORDRE_ETAPE } from '../commandes/etapes.js';
+import { infosPage, pagination } from '../commun/pagination.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DonnerAvisDto } from './dto/donner-avis.dto.js';
 
@@ -69,13 +70,14 @@ export class AvisService {
   }
 
   // GET /avis : tous les avis, la moyenne et le nombre
-  async lister() {
+  async lister(page = 1) {
     const [stats, avis] = await Promise.all([
       this.prisma.avisService.aggregate({
         _avg: { noteSur5: true },
         _count: true,
       }),
       this.prisma.avisService.findMany({
+        ...pagination(page),
         orderBy: { idAvisService: 'desc' },
         include: {
           commande: {
@@ -88,6 +90,7 @@ export class AvisService {
       }),
     ]);
     return {
+      ...infosPage(page, stats._count),
       nombre: stats._count,
       moyenne:
         stats._avg.noteSur5 === null

@@ -5,7 +5,6 @@ import {
   Get,
   Param,
   ParseEnumPipe,
-  ParseIntPipe,
   Patch,
   Post,
   Put,
@@ -24,6 +23,7 @@ import {
   VarianteDto,
 } from './dto/produit.dto.js';
 import { ProduitsService } from './produits.service.js';
+import { ParseIdPipe } from '../commun/parse-id.pipe.js';
 
 @Roles('direction')
 @Controller('admin')
@@ -35,15 +35,16 @@ export class ProduitsController {
   lister(
     @Query('statut', new ParseEnumPipe(StatutProduit, { optional: true }))
     statut?: StatutProduit,
-    @Query('categorie', new ParseIntPipe({ optional: true }))
+    @Query('categorie', new ParseIdPipe({ optional: true }))
     categorie?: number,
-    @Query('marque', new ParseIntPipe({ optional: true })) marque?: number,
+    @Query('marque', new ParseIdPipe({ optional: true })) marque?: number,
+    @Query('page', new ParseIdPipe({ optional: true })) page?: number,
   ) {
-    return this.produits.lister(statut, categorie, marque);
+    return this.produits.lister(statut, categorie, marque, page);
   }
 
   @Get('produits/:id')
-  detail(@Param('id', ParseIntPipe) id: number) {
+  detail(@Param('id', ParseIdPipe) id: number) {
     return this.produits.detail(id);
   }
 
@@ -54,30 +55,30 @@ export class ProduitsController {
 
   @Patch('produits/:id')
   modifier(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: ModifierProduitDto,
   ) {
     return this.produits.modifier(id, dto);
   }
 
   @Post('produits/:id/publier')
-  publier(@Param('id', ParseIntPipe) id: number) {
+  publier(@Param('id', ParseIdPipe) id: number) {
     return this.produits.publier(id);
   }
 
   @Post('produits/:id/refuser')
-  refuser(@Param('id', ParseIntPipe) id: number) {
+  refuser(@Param('id', ParseIdPipe) id: number) {
     return this.produits.refuser(id);
   }
 
   @Post('produits/:id/retirer')
-  retirer(@Param('id', ParseIntPipe) id: number) {
+  retirer(@Param('id', ParseIdPipe) id: number) {
     return this.produits.retirer(id);
   }
 
   @Post('produits/:id/variantes')
   ajouterVariante(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: VarianteDto,
   ) {
     return this.produits.ajouterVariante(id, dto);
@@ -87,20 +88,20 @@ export class ProduitsController {
   @Post('produits/:id/photos')
   @EnvoiPhoto()
   ajouterPhoto(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @UploadedFile() photo?: PhotoRecue,
   ) {
     return this.produits.ajouterPhoto(id, photo);
   }
 
   @Delete('photos/:id')
-  supprimerPhoto(@Param('id', ParseIntPipe) id: number) {
+  supprimerPhoto(@Param('id', ParseIdPipe) id: number) {
     return this.produits.supprimerPhoto(id);
   }
 
   @Patch('variantes/:id')
   modifierVariante(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: ModifierVarianteDto,
   ) {
     return this.produits.modifierVariante(id, dto);
@@ -108,7 +109,7 @@ export class ProduitsController {
 
   @Put('variantes/:id/paliers')
   definirPaliers(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: DefinirPaliersDto,
   ) {
     return this.produits.definirPaliers(id, dto);

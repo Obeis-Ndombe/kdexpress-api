@@ -9,6 +9,7 @@ import {
   originesAutorisees,
 } from './commun/configuration.js';
 import { installerDocumentation } from './commun/documentation.js';
+import { ProfondeurPipe } from './commun/profondeur.pipe.js';
 import { StockageService } from './fichiers/stockage.service.js';
 
 async function bootstrap() {
@@ -44,6 +45,7 @@ async function bootstrap() {
 
   // Vérifie automatiquement chaque corps de requête avec les règles des DTO
   app.useGlobalPipes(
+    new ProfondeurPipe(), // d'abord : refuse les corps imbriqués sur des milliers de niveaux
     new ValidationPipe({
       whitelist: true, // Supprime les propriétés qui ne sont pas déclarées dans le DTO
       forbidNonWhitelisted: true, // Renvoie une erreur 400 si des propriétés non autorisées sont envoyées

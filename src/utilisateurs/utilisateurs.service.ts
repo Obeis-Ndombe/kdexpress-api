@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, RoleUtilisateur, StatutCompte } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { infosPage, pagination } from '../commun/pagination.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreerUtilisateurDto } from './dto/creer-utilisateur.dto.js';
 
@@ -16,13 +17,19 @@ const SANS_MOT_DE_PASSE = { motDePasseHash: true } as const;
 export class UtilisateursService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // La liste des comptes, éventuellement filtrée par rôle
-  lister(role?: RoleUtilisateur) {
-    return this.prisma.utilisateur.findMany({
-      where: { roleUtilisateur: role }, // undefined = pas de filtre
-      omit: SANS_MOT_DE_PASSE,
-      orderBy: [{ nom: 'asc' }, { prenom: 'asc' }],
-    });
+  // La liste des comptes, éventuellement filtrée par rôle, 50 par page
+  async lister(role?: RoleUtilisateur, page = 1) {
+    const where = { roleUtilisateur: role }; // undefined = pas de filtre
+    const [total, utilisateurs] = await Promise.all([
+      this.prisma.utilisateur.count({ where }),
+      this.prisma.utilisateur.findMany({
+        ...pagination(page),
+        where,
+        omit: SANS_MOT_DE_PASSE,
+        orderBy: [{ nom: 'asc' }, { prenom: 'asc' }, { idUtilisateur: 'asc' }],
+      }),
+    ]);
+    return { ...infosPage(page, total), utilisateurs };
   }
 
   // La direction crée un compte avec le rôle de son choix

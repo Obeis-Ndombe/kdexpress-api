@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { infosPage, pagination } from '../commun/pagination.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CrediterAvoirDto } from './dto/crediter-avoir.dto.js';
 
@@ -27,7 +28,7 @@ export class AvoirsService {
   }
 
   // Le solde et le carnet d'un client, du plus récent au plus ancien
-  async historique(idClient: number) {
+  async historique(idClient: number, page = 1) {
     const client = await this.prisma.utilisateur.findUnique({
       where: { idUtilisateur: idClient },
       select: { idUtilisateur: true, nom: true, prenom: true },
@@ -36,9 +37,11 @@ export class AvoirsService {
       throw new NotFoundException(`Client ${idClient} introuvable`);
     }
 
-    const [solde, operations] = await Promise.all([
+    const [solde, nombre, operations] = await Promise.all([
       this.solde(idClient),
+      this.prisma.operationAvoir.count({ where: { idClient } }),
       this.prisma.operationAvoir.findMany({
+        ...pagination(page), // le solde, lui, compte toutes les opérations
         where: { idClient },
         orderBy: { idOperationAvoir: 'desc' },
         include: { commande: { select: { numeroCommande: true } } },
@@ -48,6 +51,7 @@ export class AvoirsService {
     return {
       client,
       soldeUsd: solde.toFixed(2),
+      ...infosPage(page, nombre),
       operations: operations.map((o) => ({
         date: o.dateOperation,
         montantUsd: o.montantUsd.toFixed(2), // positif = crédit, négatif = utilisation

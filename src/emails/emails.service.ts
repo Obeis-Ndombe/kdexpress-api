@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport, type Transporter } from 'nodemailer';
+import { emailMasque } from '../commun/journal-securite.js';
 
 export interface Email {
   a: string; // l'adresse du destinataire
@@ -52,7 +53,7 @@ export class EmailsService {
       return true;
     } catch (erreur) {
       this.journal.error(
-        `Échec de l'envoi à ${email.a} (${email.sujet})`,
+        `Échec de l'envoi à ${emailMasque(email.a)}`, // jamais le sujet : il peut contenir un code
         erreur instanceof Error ? erreur.message : String(erreur),
       );
       return false;

@@ -4,7 +4,6 @@ import {
   Get,
   Param,
   ParseEnumPipe,
-  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -16,19 +15,21 @@ import { Utilisateur } from '../auth/decorateurs/utilisateur-connecte.decorator.
 import { ChangerStatutDto } from './dto/changer-statut.dto.js';
 import { CreerUtilisateurDto } from './dto/creer-utilisateur.dto.js';
 import { UtilisateursService } from './utilisateurs.service.js';
+import { ParseIdPipe } from '../commun/parse-id.pipe.js';
 
 @Roles('direction') // toutes les routes de ce controller : direction seulement
 @Controller('utilisateurs')
 export class UtilisateursController {
   constructor(private readonly utilisateursService: UtilisateursService) {}
 
-  // GET /utilisateurs?role=agent_dubai
+  // GET /utilisateurs?role=agent_dubai&page=2 (50 par page)
   @Get()
   lister(
     @Query('role', new ParseEnumPipe(RoleUtilisateur, { optional: true }))
     role?: RoleUtilisateur,
+    @Query('page', new ParseIdPipe({ optional: true })) page?: number,
   ) {
-    return this.utilisateursService.lister(role);
+    return this.utilisateursService.lister(role, page);
   }
 
   // POST /utilisateurs
@@ -40,7 +41,7 @@ export class UtilisateursController {
   // PATCH /utilisateurs/:id/statut
   @Patch(':id/statut')
   changerStatut(
-    @Param('id', ParseIntPipe) idUtilisateur: number,
+    @Param('id', ParseIdPipe) idUtilisateur: number,
     @Body() dto: ChangerStatutDto,
     @Utilisateur() moi: UtilisateurConnecte,
   ) {

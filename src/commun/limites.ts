@@ -6,6 +6,7 @@ import {
 } from '@nestjs/throttler';
 import type { Request } from 'express';
 import type { UtilisateurConnecte } from '../auth/auth.types.js';
+import { journalSecurite } from './journal-securite.js';
 
 const UNE_MINUTE = 60_000;
 
@@ -63,7 +64,13 @@ export class LimitesGuard extends ThrottlerGuard {
     );
   }
 
-  protected throwThrottlingException(): Promise<void> {
+  protected throwThrottlingException(
+    contexte: ExecutionContext,
+  ): Promise<void> {
+    const r = requete(contexte);
+    journalSecurite.warn(
+      `Trop de tentatives : ${r.ip ?? '?'} ${r.method} ${r.path}`,
+    );
     throw new ThrottlerException(
       'Trop de tentatives, réessayez dans une minute',
     );

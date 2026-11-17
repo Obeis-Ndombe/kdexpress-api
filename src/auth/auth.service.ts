@@ -7,11 +7,17 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma, Utilisateur } from '@prisma/client';
-import { compare, hash } from 'bcryptjs';
+import { compare, hash, hashSync } from 'bcryptjs';
+import { emailMasque, journalSecurite } from '../commun/journal-securite.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ConnexionDto } from './dto/connexion.dto.js';
 import { InscriptionDto } from './dto/inscription.dto.js';
 import type { ContenuJeton } from './auth.types.js';
+
+// Une empreinte factice, calculée une fois au démarrage. Pour un e-mail inconnu, on la compare quand même :
+// la réponse prend alors le même temps (≈ 80 ms) que pour un vrai compte, et le chronomètre
+// ne révèle plus quels e-mails ont un compte.
+const EMPREINTE_FACTICE = hashSync('pas-un-vrai-mot-de-passe', 10);
 
 @Injectable()
 export class AuthService {
@@ -59,12 +65,14 @@ export class AuthService {
     });
 
     // 2. on compare le mot de passe tapé à l'empreinte enregistrée
-    const motDePasseCorrect = utilisateur
-      ? await compare(dto.motDePasse, utilisateur.motDePasseHash)
-      : false;
+    const motDePasseCorrect = await compare(
+      dto.motDePasse,
+      utilisateur?.motDePasseHash ?? EMPREINTE_FACTICE,
+    );
 
     // même message dans les deux cas : on ne dit pas à un inconnu si l'e-mail existe
     if (!utilisateur || !motDePasseCorrect) {
+      journalSecurite.warn(`Connexion refusée : ${emailMasque(dto.email)}`);
       throw new UnauthorizedException('E-mail ou mot de passe incorrect');
     }
 

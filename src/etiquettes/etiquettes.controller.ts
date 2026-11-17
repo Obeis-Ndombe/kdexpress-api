@@ -1,18 +1,11 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Param,
-  ParseIntPipe,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ApiProduces } from '@nestjs/swagger';
 import { Roles } from '../auth/decorateurs/roles.decorator.js';
 import { ExpeditionService } from '../expedition/expedition.service.js';
 import { lireCodeColis } from './code-colis.js';
 import { PointageScanDto } from './dto/pointage-scan.dto.js';
 import { EtiquettesService } from './etiquettes.service.js';
+import { ParseIdPipe } from '../commun/parse-id.pipe.js';
 
 @Controller()
 export class EtiquettesController {
@@ -25,7 +18,7 @@ export class EtiquettesController {
   @Roles('agent_dubai', 'direction')
   @ApiProduces('application/pdf')
   @Get('colis/:id/etiquette')
-  pourColis(@Param('id', ParseIntPipe) id: number) {
+  pourColis(@Param('id', ParseIdPipe) id: number) {
     return this.etiquettes.pourColis(id);
   }
 
@@ -33,7 +26,7 @@ export class EtiquettesController {
   @Roles('agent_dubai', 'direction')
   @ApiProduces('application/pdf')
   @Get('lots/:id/etiquettes')
-  pourLot(@Param('id', ParseIntPipe) id: number) {
+  pourLot(@Param('id', ParseIdPipe) id: number) {
     return this.etiquettes.pourLot(id);
   }
 

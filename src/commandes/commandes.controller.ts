@@ -4,7 +4,6 @@ import {
   Get,
   HttpCode,
   Param,
-  ParseIntPipe,
   Post,
   Query,
 } from '@nestjs/common';
@@ -16,6 +15,7 @@ import { AnnulationService } from './annulation.service.js';
 import { CommandesService } from './commandes.service.js';
 import { AnnulerCommandeDto } from './dto/annuler-commande.dto.js';
 import { DemandeCommandeDto } from './dto/demande-commande.dto.js';
+import { ParseIdPipe } from '../commun/parse-id.pipe.js';
 
 // Ceux qui suivent des commandes : les clients (les leurs) et le personnel (toutes)
 const ROLES_SUIVI = [
@@ -56,8 +56,8 @@ export class CommandesController {
   @Get()
   lister(
     @Utilisateur() utilisateur: UtilisateurConnecte,
-    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
-    @Query('client', new ParseIntPipe({ optional: true })) idClient?: number,
+    @Query('page', new ParseIdPipe({ optional: true })) page?: number,
+    @Query('client', new ParseIdPipe({ optional: true })) idClient?: number,
   ) {
     return this.commandesService.lister(utilisateur, page, idClient);
   }
@@ -66,7 +66,7 @@ export class CommandesController {
   @Roles(...ROLES_SUIVI)
   @Get(':id')
   detail(
-    @Param('id', ParseIntPipe) idCommande: number,
+    @Param('id', ParseIdPipe) idCommande: number,
     @Utilisateur() utilisateur: UtilisateurConnecte,
   ) {
     return this.commandesService.detail(idCommande, utilisateur);
@@ -77,7 +77,7 @@ export class CommandesController {
   @Post(':id/annuler')
   @HttpCode(200)
   annuler(
-    @Param('id', ParseIntPipe) idCommande: number,
+    @Param('id', ParseIdPipe) idCommande: number,
     @Body() dto: AnnulerCommandeDto,
     @Utilisateur() utilisateur: UtilisateurConnecte,
   ) {

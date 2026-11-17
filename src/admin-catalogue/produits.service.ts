@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, StatutProduit } from '@prisma/client';
 import { avecEssais, SERIALISABLE } from '../commun/transaction.js';
+import { infosPage, pagination } from '../commun/pagination.js';
 import { PHOTOS_MAX, PhotoRecue, preparerPhoto } from '../fichiers/images.js';
 import {
   StockageService,
@@ -85,9 +86,13 @@ export class ProduitsService {
     statut?: StatutProduit,
     idCategorie?: number,
     idMarque?: number,
+    page = 1,
   ) {
+    const where = { statutProduit: statut, idCategorie, idMarque };
+    const total = await this.prisma.produit.count({ where });
     const produits = await this.prisma.produit.findMany({
-      where: { statutProduit: statut, idCategorie, idMarque },
+      where,
+      ...pagination(page),
       orderBy: { idProduit: 'desc' },
       include: {
         categorie: true,
@@ -96,18 +101,21 @@ export class ProduitsService {
         _count: { select: { variantes: true } },
       },
     });
-    return produits.map((p) => ({
-      idProduit: p.idProduit,
-      nom: p.nomProduit,
-      statut: p.statutProduit,
-      categorie: p.categorie.nomCategorie,
-      marque: p.marque?.nomMarque ?? null,
-      photo: p.photos[0]
-        ? urlPhotoProduit(p.photos[0].fichierPhotoProduit)
-        : null,
-      nombreVariantes: p._count.variantes,
-      idBoutiqueOrigine: p.idBoutiqueOrigine,
-    }));
+    return {
+      ...infosPage(page, total),
+      produits: produits.map((p) => ({
+        idProduit: p.idProduit,
+        nom: p.nomProduit,
+        statut: p.statutProduit,
+        categorie: p.categorie.nomCategorie,
+        marque: p.marque?.nomMarque ?? null,
+        photo: p.photos[0]
+          ? urlPhotoProduit(p.photos[0].fichierPhotoProduit)
+          : null,
+        nombreVariantes: p._count.variantes,
+        idBoutiqueOrigine: p.idBoutiqueOrigine,
+      })),
+    };
   }
 
   // GET /admin/produits/:id : même les variantes retirées de la vente

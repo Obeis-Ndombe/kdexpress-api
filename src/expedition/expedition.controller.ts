@@ -4,9 +4,9 @@ import {
   Get,
   HttpCode,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
+  Query,
   UploadedFile,
 } from '@nestjs/common';
 import type { UtilisateurConnecte } from '../auth/auth.types.js';
@@ -23,6 +23,7 @@ import {
 } from './dto/lot.dto.js';
 import { ExpeditionService } from './expedition.service.js';
 import { PhotosColisService } from './photos-colis.service.js';
+import { ParseIdPipe } from '../commun/parse-id.pipe.js';
 
 // GET /expedition/a-emballer
 @Controller('expedition')
@@ -54,10 +55,7 @@ export class ColisController {
   // PATCH /colis/:id
   @Roles('agent_dubai')
   @Patch(':id')
-  peser(
-    @Param('id', ParseIntPipe) idColis: number,
-    @Body() dto: PeserColisDto,
-  ) {
+  peser(@Param('id', ParseIdPipe) idColis: number, @Body() dto: PeserColisDto) {
     return this.expedition.peser(idColis, dto.poidsReelKg);
   }
 
@@ -66,7 +64,7 @@ export class ColisController {
   @Post(':id/photos')
   @EnvoiPhoto()
   ajouterPhoto(
-    @Param('id', ParseIntPipe) idColis: number,
+    @Param('id', ParseIdPipe) idColis: number,
     @UploadedFile() photo?: PhotoRecue,
   ) {
     return this.photos.ajouter(idColis, photo);
@@ -76,8 +74,8 @@ export class ColisController {
   @Roles('agent_dubai', 'agent_bureau', 'direction', 'client', 'revendeur')
   @Get(':id/photos/:idPhoto')
   lirePhoto(
-    @Param('id', ParseIntPipe) idColis: number,
-    @Param('idPhoto', ParseIntPipe) idPhoto: number,
+    @Param('id', ParseIdPipe) idColis: number,
+    @Param('idPhoto', ParseIdPipe) idPhoto: number,
     @Utilisateur() utilisateur: UtilisateurConnecte,
   ) {
     return this.photos.lire(idColis, idPhoto, utilisateur);
@@ -87,7 +85,7 @@ export class ColisController {
   @Roles('agent_bureau')
   @Post(':id/pointage')
   @HttpCode(200) // on change un statut, on ne crée rien
-  pointer(@Param('id', ParseIntPipe) idColis: number) {
+  pointer(@Param('id', ParseIdPipe) idColis: number) {
     return this.expedition.pointer(idColis);
   }
 }
@@ -100,14 +98,14 @@ export class LotsController {
   // GET /lots
   @Roles('agent_dubai', 'agent_bureau', 'direction')
   @Get()
-  lister() {
-    return this.expedition.listerLots();
+  lister(@Query('page', new ParseIdPipe({ optional: true })) page?: number) {
+    return this.expedition.listerLots(page);
   }
 
   // GET /lots/:id
   @Roles('agent_dubai', 'agent_bureau', 'direction')
   @Get(':id')
-  detail(@Param('id', ParseIntPipe) idLot: number) {
+  detail(@Param('id', ParseIdPipe) idLot: number) {
     return this.expedition.detailLot(idLot);
   }
 
@@ -123,7 +121,7 @@ export class LotsController {
   @Post(':id/colis')
   @HttpCode(200)
   ajouter(
-    @Param('id', ParseIntPipe) idLot: number,
+    @Param('id', ParseIdPipe) idLot: number,
     @Body() dto: AjouterColisDto,
   ) {
     return this.expedition.ajouterAuLot(idLot, dto.colis);
@@ -133,7 +131,7 @@ export class LotsController {
   @Roles('agent_dubai')
   @Post(':id/depart')
   @HttpCode(200)
-  depart(@Param('id', ParseIntPipe) idLot: number, @Body() dto: DepartLotDto) {
+  depart(@Param('id', ParseIdPipe) idLot: number, @Body() dto: DepartLotDto) {
     return this.expedition.depart(idLot, dto);
   }
 
@@ -141,10 +139,7 @@ export class LotsController {
   @Roles('agent_bureau', 'direction')
   @Post(':id/arrivee')
   @HttpCode(200)
-  arrivee(
-    @Param('id', ParseIntPipe) idLot: number,
-    @Body() dto: ArriveeLotDto,
-  ) {
+  arrivee(@Param('id', ParseIdPipe) idLot: number, @Body() dto: ArriveeLotDto) {
     return this.expedition.arrivee(idLot, dto);
   }
 }

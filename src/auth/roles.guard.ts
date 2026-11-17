@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { RoleUtilisateur } from '@prisma/client';
 import type { RequeteAuthentifiee } from './auth.types.js';
+import { journalSecurite } from '../commun/journal-securite.js';
 import { ROLES_AUTORISES } from './decorateurs/roles.decorator.js';
 
 // Passe APRÈS la garde JWT : on sait déjà qui est l'utilisateur, on vérifie son rôle
@@ -30,6 +31,10 @@ export class RolesGuard implements CanActivate {
       .switchToHttp()
       .getRequest<RequeteAuthentifiee>();
     if (!utilisateur || !rolesAutorises.includes(utilisateur.role)) {
+      const r = context.switchToHttp().getRequest<RequeteAuthentifiee>();
+      journalSecurite.warn(
+        `Accès refusé : utilisateur ${utilisateur?.idUtilisateur ?? '?'} (${utilisateur?.role ?? '?'}) sur ${r.method} ${r.path}`,
+      );
       throw new ForbiddenException(
         "Vous n'avez pas les droits pour cette action",
       );

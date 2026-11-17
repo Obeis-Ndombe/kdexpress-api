@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
 import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
+import { emailMasque, journalSecurite } from '../commun/journal-securite.js';
 import { EmailsService } from '../emails/emails.service.js';
 import {
   emailCodeReinitialisation,
@@ -179,6 +180,9 @@ export class CompteService {
       Buffer.from(demande.codeHash),
     );
     if (essai.count === 0 || !bon) {
+      journalSecurite.warn(
+        `Code de réinitialisation refusé : ${emailMasque(dto.email)}`,
+      );
       throw new BadRequestException(CODE_REFUSE);
     }
 

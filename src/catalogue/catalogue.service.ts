@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { infosPage, pagination } from '../commun/pagination.js';
 import { urlPhotoProduit } from '../fichiers/stockage.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -21,15 +22,18 @@ export class CatalogueService {
     });
   }
 
-  // GET /catalogue/produits?categorie=1&marque=2
-  async listerProduits(idCategorie?: number, idMarque?: number) {
+  // GET /catalogue/produits?categorie=1&marque=2&page=2 (50 produits par page)
+  async listerProduits(idCategorie?: number, idMarque?: number, page = 1) {
     // le taux AED -> USD vient des paramètres de la direction
     const taux = await this.tauxChange(); 
 
+    // un filtre « undefined » est ignoré par Prisma
+    const where = { statutProduit: 'publie' as const, idCategorie, idMarque };
+    const total = await this.prisma.produit.count({ where });
     const produits = await this.prisma.produit.findMany({
-      // un filtre « undefined » est ignoré par Prisma
-      where: { statutProduit: 'publie', idCategorie, idMarque },
-      orderBy: { nomProduit: 'asc' },
+      where,
+      ...pagination(page), // jamais tout le catalogue d'un coup
+      orderBy: [{ nomProduit: 'asc' }, { idProduit: 'asc' }],
       include: {
         marque: true,
         categorie: true,
@@ -42,15 +46,18 @@ export class CatalogueService {
       },
     });
 
-    return produits.map((p) => ({
-      idProduit: p.idProduit,
-      nom: p.nomProduit,
-      marque: p.marque?.nomMarque ?? null,
-      categorie: p.categorie.nomCategorie,
-      photo: p.photos[0] ? urlPhotoProduit(p.photos[0].fichierPhotoProduit) : null,
-      // le prix « à partir de » est celui de la variante la moins chère, si elle existe
-      prixAPartirDe: p.variantes[0] ? this.prix(p.variantes[0].prixCatalogueAed, taux) : null,
-    }));
+    return {
+      ...infosPage(page, total),
+      produits: produits.map((p) => ({
+        idProduit: p.idProduit,
+        nom: p.nomProduit,
+        marque: p.marque?.nomMarque ?? null,
+        categorie: p.categorie.nomCategorie,
+        photo: p.photos[0] ? urlPhotoProduit(p.photos[0].fichierPhotoProduit) : null,
+        // le prix « à partir de » est celui de la variante la moins chère, si elle existe
+        prixAPartirDe: p.variantes[0] ? this.prix(p.variantes[0].prixCatalogueAed, taux) : null,
+      })),
+    };
   }
 
   // GET /catalogue/produits/:id

@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import { Roles } from '../auth/decorateurs/roles.decorator.js';
 import {
   CreerCategorieDto,
@@ -19,6 +10,7 @@ import {
   CreerMarqueDto,
 } from './dto/marque-caracteristique.dto.js';
 import { ReferentielService } from './referentiel.service.js';
+import { ParseIdPipe } from '../commun/parse-id.pipe.js';
 
 @Roles('direction')
 @Controller('admin')
@@ -37,7 +29,7 @@ export class ReferentielController {
 
   @Patch('categories/:id')
   modifierCategorie(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: ModifierCategorieDto,
   ) {
     return this.referentiel.modifierCategorie(id, dto);
@@ -45,7 +37,7 @@ export class ReferentielController {
 
   @Put('categories/:id/caracteristiques')
   definirCaracteristiques(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: DefinirCaracteristiquesCategorieDto,
   ) {
     return this.referentiel.definirCaracteristiques(id, dto);

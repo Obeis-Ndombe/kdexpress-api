@@ -23,6 +23,9 @@ type Decimal = Prisma.Decimal;
 // Nombre d'essais si le code de retrait tiré existe déjà (très rare)
 const ESSAIS_CODE_RETRAIT = 5;
 
+// Commandes en attente de paiement qu'un client peut avoir en même temps
+const COMMANDES_IMPAYEES_MAX = 10;
+
 // Nombre de commandes par page dans la liste
 const PAR_PAGE = 20;
 
@@ -89,6 +92,21 @@ export class CommandesService {
 
   // POST /commandes : le panier devient une vraie commande, aux prix figés
   async creer(dto: DemandeCommandeDto, idClient: number) {
+    // 0. un robot ou un compte malveillant ne peut pas remplir la base de commandes jamais payées
+    const enAttente = await this.prisma.commande.count({
+      where: {
+        idClient,
+        historique: {
+          every: { etape: { ordreEtape: ORDRE_ETAPE.EN_ATTENTE_PAIEMENT } },
+        },
+      },
+    });
+    if (enAttente >= COMMANDES_IMPAYEES_MAX) {
+      throw new BadRequestException(
+        `Vous avez déjà ${COMMANDES_IMPAYEES_MAX} commandes en attente de paiement : payez-en une ou annulez-la`,
+      );
+    }
+
     // 1. le même calcul que le devis : le client paie ce qu'on lui a annoncé
     const chiffrage = await this.tarification.chiffrer(dto.lignes);
 

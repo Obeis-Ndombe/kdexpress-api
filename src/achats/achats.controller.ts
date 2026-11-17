@@ -1,17 +1,10 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Param,
-  ParseIntPipe,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import type { UtilisateurConnecte } from '../auth/auth.types.js';
 import { Roles } from '../auth/decorateurs/roles.decorator.js';
 import { Utilisateur } from '../auth/decorateurs/utilisateur-connecte.decorator.js';
 import { AchatsService } from './achats.service.js';
 import { EnregistrerAchatDto } from './dto/enregistrer-achat.dto.js';
+import { ParseIdPipe } from '../commun/parse-id.pipe.js';
 
 @Controller('achats')
 export class AchatsController {
@@ -38,7 +31,7 @@ export class AchatsController {
   @Roles('agent_dubai')
   @Post('lignes/:id/introuvable')
   @HttpCode(200) // on change un statut, on ne crée rien
-  introuvable(@Param('id', ParseIntPipe) idLigneCommande: number) {
+  introuvable(@Param('id', ParseIdPipe) idLigneCommande: number) {
     return this.achatsService.introuvable(idLigneCommande);
   }
 
@@ -46,7 +39,7 @@ export class AchatsController {
   @Roles('direction')
   @Post('lignes/:id/rembourser')
   @HttpCode(200)
-  rembourser(@Param('id', ParseIntPipe) idLigneCommande: number) {
+  rembourser(@Param('id', ParseIdPipe) idLigneCommande: number) {
     return this.achatsService.rembourser(idLigneCommande);
   }
 }

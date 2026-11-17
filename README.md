@@ -25,6 +25,7 @@ En développement.
 | Compte et e-mails                              | Fait |
 | Tableau de bord de la direction                | Fait |
 | Documentation /docs                            | Fait |
+| Audit de sécurité OWASP                        | Fait |
 
 ## Technologies
 
@@ -329,6 +330,10 @@ Le taux de change, le transport, les frais de service, la marge et les délais s
 
 ## Protections
 
+Le détail de l'audit de sécurité (OWASP API Security Top 10 et OWASP Top 10) est dans [SECURITE.md](SECURITE.md).
+
+Les listes qui grandissent avec le temps (catalogue, produits, lots, utilisateurs, avis, carnets d'avoir) se lisent par pages de 50 : `?page=2`. La réponse indique `page`, `parPage`, `total` et `pages`.
+
 | Protection                   | Ce qu'elle fait                                                                                      |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Limites d'essais             | 120 requêtes par minute (par utilisateur connecté, sinon par adresse). Au-delà : 429                 |
@@ -406,6 +411,8 @@ src/
 | `npm run lint`     | Vérifie le code                                                         |
 
 Les tests unitaires n'ont pas besoin de base de données : Prisma y est remplacé par une doublure.
+
+`npm run test:e2e` utilise la base du `.env`. Il vérifie aussi les requêtes écrites en SQL (verrous, tableau de bord), que TypeScript ne contrôle pas : une colonne renommée dans `schema.prisma` les ferait échouer. Ses données de test sont datées de janvier 2000 et supprimées à la fin.
 Sur GitHub, chaque push lance le lint, la compilation et les deux séries de tests (`.github/workflows/tests.yml`).
 
 ## Organisation du code

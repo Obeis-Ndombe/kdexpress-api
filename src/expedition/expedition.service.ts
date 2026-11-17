@@ -9,6 +9,7 @@ import { franchirEtape } from '../commandes/avancement.js';
 import { numeroProvisoire } from '../commandes/codes.js';
 import { ORDRE_ETAPE } from '../commandes/etapes.js';
 import { avecEssais, SERIALISABLE } from '../commun/transaction.js';
+import { infosPage, pagination } from '../commun/pagination.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreerColisDto } from './dto/creer-colis.dto.js';
 import { ArriveeLotDto, DepartLotDto } from './dto/lot.dto.js';
@@ -384,24 +385,31 @@ export class ExpeditionService {
     return { ...(await this.detailLot(idLot)), commandesAvancees: etapes };
   }
 
-  // GET /lots
-  async listerLots() {
-    const lots = await this.prisma.lotExpedition.findMany({
-      orderBy: { idLotExpedition: 'desc' },
-      include: {
-        agence: { select: { nomAgence: true } },
-        _count: { select: { colis: true } }, // le nombre de colis, sans les charger
-      },
-    });
-    return lots.map((l) => ({
-      idLot: l.idLotExpedition,
-      reference: l.referenceLot,
-      agence: l.agence.nomAgence,
-      statut: l.statutLot,
-      dateDepart: l.dateDepart,
-      dateArrivee: l.dateArrivee,
-      nombreColis: l._count.colis,
-    }));
+  // GET /lots?page=2 : les plus récents d'abord, 50 par page
+  async listerLots(page = 1) {
+    const [total, lots] = await Promise.all([
+      this.prisma.lotExpedition.count(),
+      this.prisma.lotExpedition.findMany({
+        ...pagination(page),
+        orderBy: { idLotExpedition: 'desc' },
+        include: {
+          agence: { select: { nomAgence: true } },
+          _count: { select: { colis: true } }, // le nombre de colis, sans les charger
+        },
+      }),
+    ]);
+    return {
+      ...infosPage(page, total),
+      lots: lots.map((l) => ({
+        idLot: l.idLotExpedition,
+        reference: l.referenceLot,
+        agence: l.agence.nomAgence,
+        statut: l.statutLot,
+        dateDepart: l.dateDepart,
+        dateArrivee: l.dateArrivee,
+        nombreColis: l._count.colis,
+      })),
+    };
   }
 
   // GET /lots/:id

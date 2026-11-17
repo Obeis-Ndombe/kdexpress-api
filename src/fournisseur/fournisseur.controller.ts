@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   Put,
@@ -20,6 +19,7 @@ import {
   PropositionProduitDto,
 } from './dto/proposition-produit.dto.js';
 import { FournisseurService } from './fournisseur.service.js';
+import { ParseIdPipe } from '../commun/parse-id.pipe.js';
 
 @Roles('fournisseur')
 @Controller('fournisseur/boutiques')
@@ -34,7 +34,7 @@ export class FournisseurController {
   @Get(':id/produits')
   mesPropositions(
     @Utilisateur() u: UtilisateurConnecte,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
   ) {
     return this.fournisseur.mesPropositions(u.idUtilisateur, id);
   }
@@ -42,7 +42,7 @@ export class FournisseurController {
   @Post(':id/produits')
   proposer(
     @Utilisateur() u: UtilisateurConnecte,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: PropositionProduitDto,
   ) {
     return this.fournisseur.proposer(u.idUtilisateur, id, dto);
@@ -51,8 +51,8 @@ export class FournisseurController {
   @Patch(':id/produits/:idProduit')
   modifierProposition(
     @Utilisateur() u: UtilisateurConnecte,
-    @Param('id', ParseIntPipe) id: number,
-    @Param('idProduit', ParseIntPipe) idProduit: number,
+    @Param('id', ParseIdPipe) id: number,
+    @Param('idProduit', ParseIdPipe) idProduit: number,
     @Body() dto: ModifierPropositionDto,
   ) {
     return this.fournisseur.modifierProposition(
@@ -68,8 +68,8 @@ export class FournisseurController {
   @EnvoiPhoto()
   ajouterPhoto(
     @Utilisateur() u: UtilisateurConnecte,
-    @Param('id', ParseIntPipe) id: number,
-    @Param('idProduit', ParseIntPipe) idProduit: number,
+    @Param('id', ParseIdPipe) id: number,
+    @Param('idProduit', ParseIdPipe) idProduit: number,
     @UploadedFile() photo?: PhotoRecue,
   ) {
     return this.fournisseur.ajouterPhoto(u.idUtilisateur, id, idProduit, photo);
@@ -78,7 +78,7 @@ export class FournisseurController {
   @Get(':id/offres')
   mesOffres(
     @Utilisateur() u: UtilisateurConnecte,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
   ) {
     return this.fournisseur.mesOffres(u.idUtilisateur, id);
   }
@@ -86,8 +86,8 @@ export class FournisseurController {
   @Put(':id/offres/:idVariante')
   enregistrerOffre(
     @Utilisateur() u: UtilisateurConnecte,
-    @Param('id', ParseIntPipe) id: number,
-    @Param('idVariante', ParseIntPipe) idVariante: number,
+    @Param('id', ParseIdPipe) id: number,
+    @Param('idVariante', ParseIdPipe) idVariante: number,
     @Body() dto: OffreDto,
   ) {
     return this.fournisseur.enregistrerOffre(
