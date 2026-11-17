@@ -10,6 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { catchError, Observable } from 'rxjs';
 import { TAILLE_MAX_PHOTO } from './images.js';
 
@@ -42,6 +43,21 @@ class TraduireErreursEnvoi implements NestInterceptor {
 // gardée en mémoire le temps de la vérifier et de la compresser
 export function EnvoiPhoto() {
   return applyDecorators(
+    // pour la documentation /docs : un champ « photo » de type fichier
+    ApiConsumes('multipart/form-data'),
+    ApiBody({
+      schema: {
+        type: 'object',
+        required: ['photo'],
+        properties: {
+          photo: {
+            type: 'string',
+            format: 'binary',
+            description: 'JPEG, PNG ou WebP, 8 Mo au plus',
+          },
+        },
+      },
+    }),
     UseInterceptors(
       TraduireErreursEnvoi,
       FileInterceptor('photo', {

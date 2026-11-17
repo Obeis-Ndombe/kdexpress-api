@@ -37,6 +37,12 @@ export function verifierConfiguration(env: Record<string, unknown>) {
     }
   }
   entier('NOTIFICATIONS_INTERVALLE_SECONDES', 0);
+  if (
+    texte('DOCS_ACTIVES') &&
+    !['true', 'false'].includes(texte('DOCS_ACTIVES'))
+  ) {
+    erreurs.push('DOCS_ACTIVES doit valoir true ou false');
+  }
   const smtp = texte('SMTP_URL');
   if (smtp && !/^smtps?:\/\/\S+$/.test(smtp)) {
     erreurs.push(
@@ -71,4 +77,12 @@ export function originesAutorisees(env: Record<string, unknown>): string[] {
         .map((o) => o.trim())
         .filter((o) => o !== '')
     : [];
+}
+
+// La page /docs montre toutes les routes : ouverte en développement,
+// fermée en production sauf si DOCS_ACTIVES=true
+export function docsActives(env: Record<string, unknown>): boolean {
+  const valeur =
+    typeof env.DOCS_ACTIVES === 'string' ? env.DOCS_ACTIVES.trim() : '';
+  return valeur ? valeur === 'true' : env.NODE_ENV !== 'production';
 }

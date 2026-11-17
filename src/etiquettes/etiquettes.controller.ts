@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Post,
 } from '@nestjs/common';
+import { ApiProduces } from '@nestjs/swagger';
 import { Roles } from '../auth/decorateurs/roles.decorator.js';
 import { ExpeditionService } from '../expedition/expedition.service.js';
 import { lireCodeColis } from './code-colis.js';
@@ -22,6 +23,7 @@ export class EtiquettesController {
 
   // GET /colis/:id/etiquette : le PDF à imprimer et coller sur le colis
   @Roles('agent_dubai', 'direction')
+  @ApiProduces('application/pdf')
   @Get('colis/:id/etiquette')
   pourColis(@Param('id', ParseIntPipe) id: number) {
     return this.etiquettes.pourColis(id);
@@ -29,6 +31,7 @@ export class EtiquettesController {
 
   // GET /lots/:id/etiquettes : toutes les étiquettes d'un lot dans un seul PDF
   @Roles('agent_dubai', 'direction')
+  @ApiProduces('application/pdf')
   @Get('lots/:id/etiquettes')
   pourLot(@Param('id', ParseIntPipe) id: number) {
     return this.etiquettes.pourLot(id);

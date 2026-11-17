@@ -1,4 +1,8 @@
-import { originesAutorisees, verifierConfiguration } from './configuration.js';
+import {
+  docsActives,
+  originesAutorisees,
+  verifierConfiguration,
+} from './configuration.js';
 
 const BON = {
   DATABASE_URL: 'postgresql://postgres:secret@localhost:5432/kdexpress',
@@ -83,5 +87,17 @@ describe('contrôle de la configuration', () => {
     expect(() =>
       verifierConfiguration({ ...BON, SMTP_URL: 'smtp.exemple.com' }),
     ).toThrow('SMTP_URL doit ressembler');
+  });
+
+  it('la documentation : ouverte en développement, fermée en production sauf demande', () => {
+    expect(docsActives({})).toBe(true);
+    expect(docsActives({ NODE_ENV: 'production' })).toBe(false);
+    expect(docsActives({ NODE_ENV: 'production', DOCS_ACTIVES: 'true' })).toBe(
+      true,
+    );
+    expect(docsActives({ DOCS_ACTIVES: 'false' })).toBe(false);
+    expect(() =>
+      verifierConfiguration({ ...BON, DOCS_ACTIVES: 'oui' }),
+    ).toThrow('DOCS_ACTIVES');
   });
 });

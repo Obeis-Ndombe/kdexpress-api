@@ -3,7 +3,12 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
-import { EN_PRODUCTION, originesAutorisees } from './commun/configuration.js';
+import {
+  docsActives,
+  EN_PRODUCTION,
+  originesAutorisees,
+} from './commun/configuration.js';
+import { installerDocumentation } from './commun/documentation.js';
 import { StockageService } from './fichiers/stockage.service.js';
 
 async function bootstrap() {
@@ -45,6 +50,11 @@ async function bootstrap() {
       transform: true, // Transforme les données reçues en instances de DTO et active les transformations configurées
     }),
   );
+
+  // La documentation /docs : en développement, ou en production si DOCS_ACTIVES=true
+  if (docsActives(process.env)) {
+    installerDocumentation(app);
+  }
 
   await app.listen(process.env.PORT ?? 3000);
 }

@@ -24,6 +24,7 @@ En développement.
 | Réglages par la direction                      | Fait |
 | Compte et e-mails                              | Fait |
 | Tableau de bord de la direction                | Fait |
+| Documentation /docs                            | Fait |
 
 ## Technologies
 
@@ -256,6 +257,18 @@ curl -X POST http://localhost:3000/admin/produits/1/photos \
 - L'étiquette montre le numéro de commande, le rang du colis (« 2 / 3 »), le poids, le lot et l'agence de transport.
 - Le client y figure en abrégé (« Marie K. •••• 4521 »). **Le code de retrait n'y figure jamais.**
 - Le pointage par scan suit les mêmes règles que `POST /colis/:id/pointage`.
+
+## Documentation interactive
+
+API lancée, ouvre **http://localhost:3000/docs** : toutes les routes, rangées par groupe, avec leurs champs et un bouton **Try it out** pour les essayer.
+
+1. Ouvre `POST /auth/connexion`, clique sur **Try it out**, mets ton email et ton mot de passe, puis **Execute**.
+2. Copie `jetonAcces` dans la réponse, clique sur **Authorize** en haut de la page et colle-le.
+3. Toutes les routes protégées marchent ensuite depuis la page.
+
+- La description au format OpenAPI est à `http://localhost:3000/docs/openapi.json` : elle permet de générer automatiquement le code d'appel dans les applis.
+- Les champs sont lus dans les DTO par le plugin Swagger (`nest-cli.json`). Une route ou un champ ajouté apparaît tout seul.
+- En production, la page est fermée, sauf avec `DOCS_ACTIVES=true`.
 
 ## Compte et e-mails
 
