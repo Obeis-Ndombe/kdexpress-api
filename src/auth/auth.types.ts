@@ -5,6 +5,7 @@ import type { RoleUtilisateur } from '@prisma/client';
 export interface ContenuJeton {
   sub: number; // « subject » : l'id de l'utilisateur
   role: RoleUtilisateur;
+  iat?: number; // date d'émission, en secondes (ajoutée par la signature)
 }
 
 // Ce que la garde accroche à la requête une fois le jeton vérifié

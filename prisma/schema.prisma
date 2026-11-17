@@ -132,6 +132,8 @@ model Utilisateur {
   roleUtilisateur RoleUtilisateur @map("role_utilisateur")
   statutCompte    StatutCompte    @default(actif) @map("statut_compte")
   dateInscription DateTime        @default(now()) @map("date_inscription") @db.Timestamptz(6)
+  // dernier changement de mot de passe : les jetons émis avant cette date ne valent plus rien
+  dateMotDePasse  DateTime?       @map("date_mot_de_passe") @db.Timestamptz(6)
 
   gestionsBoutique   GestionBoutique[]
   commandes          Commande[]
@@ -139,8 +141,26 @@ model Utilisateur {
   colisRemis         Colis[]
   paiementsEncaisses Paiement[]
   operationsAvoir    OperationAvoir[]
+  reinitialisations  ReinitialisationMotDePasse[]
 
   @@map("utilisateur")
+}
+
+// Une demande « mot de passe oublié » : un code à 6 chiffres envoyé par e-mail.
+// On ne garde que l'empreinte du code, il expire vite et ne sert qu'une fois.
+model ReinitialisationMotDePasse {
+  idReinitialisation Int       @id @default(autoincrement()) @map("id_reinitialisation")
+  codeHash           String    @map("code_hash") @db.VarChar(64)
+  dateDemande        DateTime  @default(now()) @map("date_demande") @db.Timestamptz(6)
+  dateExpiration     DateTime  @map("date_expiration") @db.Timestamptz(6)
+  tentatives         Int       @default(0) @db.SmallInt
+  dateUtilisation    DateTime? @map("date_utilisation") @db.Timestamptz(6)
+  idUtilisateur      Int       @map("id_utilisateur")
+
+  utilisateur Utilisateur @relation(fields: [idUtilisateur], references: [idUtilisateur], onDelete: Cascade)
+
+  @@index([idUtilisateur])
+  @@map("reinitialisation_mot_de_passe")
 }
 
 model Boutique {
@@ -537,12 +557,15 @@ model HistoriqueCommande {
   idEtapeCommande    Int      @map("id_etape_commande")
   dateFranchissement DateTime @default(now()) @map("date_franchissement") @db.Timestamptz(6)
   commentaireEtape   String?  @map("commentaire_etape") @db.VarChar(500)
+  // quand le client a été prévenu par e-mail de cette étape (vide : pas encore)
+  dateNotification   DateTime? @map("date_notification") @db.Timestamptz(6)
 
   commande Commande      @relation(fields: [idCommande], references: [idCommande], onDelete: Restrict)
   etape    EtapeCommande @relation(fields: [idEtapeCommande], references: [idEtapeCommande], onDelete: Restrict)
 
   @@id([idCommande, idEtapeCommande])
   @@index([idEtapeCommande])
+  @@index([dateNotification])
   @@map("historique_commande")
 }
 

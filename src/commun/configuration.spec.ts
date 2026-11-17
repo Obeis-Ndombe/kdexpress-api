@@ -16,6 +16,8 @@ describe('contrôle de la configuration', () => {
         NODE_ENV: 'production',
         ORIGINES_AUTORISEES:
           'https://app.kdexpress.cd, https://admin.kdexpress.cd',
+        SMTP_URL: 'smtps://identifiant:secret@smtp.exemple.com:465',
+        EMAIL_EXPEDITEUR: 'KDExpress <contact@kdexpress.cd>',
       }),
     ).not.toThrow();
   });
@@ -69,5 +71,17 @@ describe('contrôle de la configuration', () => {
       }),
     ).toEqual(['https://a.cd', 'https://b.cd']);
     expect(originesAutorisees({})).toEqual([]);
+  });
+
+  it('en production, exige le service d’e-mails', () => {
+    const prod = {
+      ...BON,
+      NODE_ENV: 'production',
+      ORIGINES_AUTORISEES: 'https://app.kdexpress.cd',
+    };
+    expect(() => verifierConfiguration(prod)).toThrow('SMTP_URL');
+    expect(() =>
+      verifierConfiguration({ ...BON, SMTP_URL: 'smtp.exemple.com' }),
+    ).toThrow('SMTP_URL doit ressembler');
   });
 });

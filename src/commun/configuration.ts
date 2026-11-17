@@ -36,6 +36,18 @@ export function verifierConfiguration(env: Record<string, unknown>) {
       );
     }
   }
+  entier('NOTIFICATIONS_INTERVALLE_SECONDES', 0);
+  const smtp = texte('SMTP_URL');
+  if (smtp && !/^smtps?:\/\/\S+$/.test(smtp)) {
+    erreurs.push(
+      'SMTP_URL doit ressembler à smtps://identifiant:motdepasse@serveur:465',
+    );
+  }
+  if (env.NODE_ENV === 'production' && (!smtp || !texte('EMAIL_EXPEDITEUR'))) {
+    erreurs.push(
+      'SMTP_URL et EMAIL_EXPEDITEUR sont obligatoires en production (sans eux, aucun e-mail ne part : ni code de mot de passe oublié, ni notification)',
+    );
+  }
   if (env.NODE_ENV === 'production' && origines.length === 0) {
     erreurs.push(
       'ORIGINES_AUTORISEES est obligatoire en production (les sites web qui ont le droit d’appeler l’API)',

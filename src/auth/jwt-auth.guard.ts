@@ -26,7 +26,7 @@ export class JwtAuthGuard implements CanActivate {
       ROUTE_PUBLIQUE,
       [
         context.getHandler(), // la méthode du controller
-        context.getClass(), // le controller 
+        context.getClass(), // le controller
       ],
     );
     if (estPublique) {
@@ -55,6 +55,7 @@ export class JwtAuthGuard implements CanActivate {
         idUtilisateur: true,
         roleUtilisateur: true,
         statutCompte: true,
+        dateMotDePasse: true,
       },
     });
     if (!utilisateur) {
@@ -62,6 +63,13 @@ export class JwtAuthGuard implements CanActivate {
     }
     if (utilisateur.statutCompte !== 'actif') {
       throw new ForbiddenException("Ce compte n'est pas actif");
+    }
+    // un jeton émis avant le dernier changement de mot de passe ne vaut plus rien
+    if (
+      utilisateur.dateMotDePasse &&
+      (contenu.iat ?? 0) * 1000 < utilisateur.dateMotDePasse.getTime()
+    ) {
+      throw new UnauthorizedException('Mot de passe changé : reconnectez-vous');
     }
 
     // 5. on accroche l'utilisateur à la requête, avec le rôle À JOUR de la base

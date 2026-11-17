@@ -22,6 +22,7 @@ En développement.
 | Étiquettes QR des colis                        | Fait |
 | Protections pour la mise en ligne              | Fait |
 | Réglages par la direction                      | Fait |
+| Compte et e-mails                              | Fait |
 
 ## Technologies
 
@@ -255,6 +256,29 @@ curl -X POST http://localhost:3000/admin/produits/1/photos \
 - Le client y figure en abrégé (« Marie K. •••• 4521 »). **Le code de retrait n'y figure jamais.**
 - Le pointage par scan suit les mêmes règles que `POST /colis/:id/pointage`.
 
+## Compte et e-mails
+
+| Méthode | Route                             | Accès    | Rôle                                                     |
+| ------- | --------------------------------- | -------- | -------------------------------------------------------- |
+| PATCH   | `/auth/moi`                       | connecté | Modifier son nom, son prénom, son téléphone              |
+| POST    | `/auth/mot-de-passe`              | connecté | Changer son mot de passe (il faut connaître l'actuel)    |
+| POST    | `/auth/mot-de-passe-oublie`       | public   | Recevoir un code à 6 chiffres par e-mail : `{ "email" }` |
+| POST    | `/auth/mot-de-passe-reinitialise` | public   | `{ "email", "code", "nouveauMotDePasse" }`               |
+
+- Après un changement de mot de passe, tous les anciens jetons sont refusés. L'appareil qui a fait le changement reçoit un jeton neuf.
+- Le code est valable 15 minutes, ne sert qu'une fois, et accepte 5 essais. Un compte reçoit au plus 1 code par minute et 5 par jour. Seule l'empreinte du code est gardée en base.
+- « Mot de passe oublié » répond toujours la même chose, que le compte existe ou non.
+- L'e-mail et le rôle ne se modifient pas par `/auth/moi`.
+
+**Notifications.** Le client reçoit un e-mail quand sa commande est enregistrée, payée, expédiée, prête au retrait, récupérée ou annulée. L'API repasse toutes les 30 secondes sur les étapes pas encore notifiées : un e-mail qui échoue est retenté (pendant 24 h), et une panne du service d'envoi ne bloque jamais une commande. Le code de retrait n'est jamais écrit dans un e-mail.
+
+```env
+SMTP_URL="smtps://identifiant:motdepasse@smtp.exemple.com:465"
+EMAIL_EXPEDITEUR="KDExpress <contact@kdexpress.cd>"
+```
+
+Sans `SMTP_URL`, les e-mails sont écrits dans le journal de l'API au lieu d'être envoyés. En production, les deux variables sont obligatoires.
+
 ## Réglages (direction)
 
 Le taux de change, le transport, les frais de service, la marge et les délais se règlent sans toucher à la base.
@@ -305,7 +329,7 @@ PROXYS_DE_CONFIANCE=1
 ```
 prisma/
   schema.prisma       description des 28 tables
-  migrations/         historique de la base (init, contraintes, marge du catalogue)
+  migrations/         historique de la base (init, contraintes, marge du catalogue, compte et notifications)
   seed.ts             données d'essai
   creer-direction.ts  création du premier compte de la direction
 src/
@@ -326,6 +350,7 @@ src/
   expedition/         colis, lots, départ, arrivée, pointage
   retraits/           remise des colis au client
   avis/               avis sur le service
+  emails/             envoi des e-mails, modèles, notifications de commande
   parametres/         réglages de la direction et leurs règles
   etiquettes/         étiquettes PDF avec QR, pointage par scan
   fichiers/           réception, vérification, compression et rangement des photos

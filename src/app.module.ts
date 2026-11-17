@@ -25,6 +25,7 @@ import { FournisseurModule } from './fournisseur/fournisseur.module.js';
 import { FichiersModule } from './fichiers/fichiers.module.js';
 import { EtiquettesModule } from './etiquettes/etiquettes.module.js';
 import { ParametresModule } from './parametres/parametres.module.js';
+import { EmailsModule } from './emails/emails.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ParametresModule } from './parametres/parametres.module.js';
     ThrottlerModule.forRoot(LIMITES), // les limites d'essais (voir commun/limites.ts)
     PrismaModule,
     FichiersModule,
+    EmailsModule,
     CatalogueModule,
     AuthModule,
     UtilisateursModule,

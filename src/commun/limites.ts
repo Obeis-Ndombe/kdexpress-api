@@ -33,6 +33,7 @@ export const LIMITES: ThrottlerModuleOptions = [
 // Les limites plus strictes de certaines routes : @Throttle(LIMITE_CONNEXION)…
 export const LIMITE_CONNEXION = { general: { ttl: UNE_MINUTE, limit: 20 } }; // par adresse, tous emails confondus
 export const LIMITE_INSCRIPTION = { general: { ttl: UNE_MINUTE, limit: 10 } };
+export const LIMITE_MOT_DE_PASSE = { general: { ttl: UNE_MINUTE, limit: 10 } };
 export const LIMITE_CODE_RETRAIT = { general: { ttl: UNE_MINUTE, limit: 20 } }; // un code ne se devine pas
 
 function requete(contexte: ExecutionContext): Request {
@@ -40,7 +41,15 @@ function requete(contexte: ExecutionContext): Request {
 }
 
 function estConnexion(req: Request): boolean {
-  return req.method === 'POST' && req.path === '/auth/connexion';
+  // la connexion et les deux routes « mot de passe oublié » : 5 par minute pour un même e-mail
+  return (
+    req.method === 'POST' &&
+    [
+      '/auth/connexion',
+      '/auth/mot-de-passe-oublie',
+      '/auth/mot-de-passe-reinitialise',
+    ].includes(req.path)
+  );
 }
 
 // La garde des limites. Elle passe après l'authentification :
