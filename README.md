@@ -20,6 +20,11 @@ En développement.
 | Tests automatiques                             | Fait |
 | Envoi des photos                               | Fait |
 | Étiquettes QR des colis                        | Fait |
+| Protections pour la mise en ligne              | Fait |
+| Réglages par la direction                      | Fait |
+| Compte et e-mails                              | Fait |
+| Tableau de bord de la direction                | Fait |
+| Documentation /docs                            | Fait |
 
 ## Technologies
 
@@ -253,12 +258,107 @@ curl -X POST http://localhost:3000/admin/produits/1/photos \
 - Le client y figure en abrégé (« Marie K. •••• 4521 »). **Le code de retrait n'y figure jamais.**
 - Le pointage par scan suit les mêmes règles que `POST /colis/:id/pointage`.
 
+## Documentation interactive
+
+API lancée, ouvre **http://localhost:3000/docs** : toutes les routes, rangées par groupe, avec leurs champs et un bouton **Try it out** pour les essayer.
+
+1. Ouvre `POST /auth/connexion`, clique sur **Try it out**, mets ton email et ton mot de passe, puis **Execute**.
+2. Copie `jetonAcces` dans la réponse, clique sur **Authorize** en haut de la page et colle-le.
+3. Toutes les routes protégées marchent ensuite depuis la page.
+
+- La description au format OpenAPI est à `http://localhost:3000/docs/openapi.json` : elle permet de générer automatiquement le code d'appel dans les applis.
+- Les champs sont lus dans les DTO par le plugin Swagger (`nest-cli.json`). Une route ou un champ ajouté apparaît tout seul.
+- En production, la page est fermée, sauf avec `DOCS_ACTIVES=true`.
+
+## Compte et e-mails
+
+| Méthode | Route                             | Accès    | Rôle                                                     |
+| ------- | --------------------------------- | -------- | -------------------------------------------------------- |
+| PATCH   | `/auth/moi`                       | connecté | Modifier son nom, son prénom, son téléphone              |
+| POST    | `/auth/mot-de-passe`              | connecté | Changer son mot de passe (il faut connaître l'actuel)    |
+| POST    | `/auth/mot-de-passe-oublie`       | public   | Recevoir un code à 6 chiffres par e-mail : `{ "email" }` |
+| POST    | `/auth/mot-de-passe-reinitialise` | public   | `{ "email", "code", "nouveauMotDePasse" }`               |
+
+- Après un changement de mot de passe, tous les anciens jetons sont refusés. L'appareil qui a fait le changement reçoit un jeton neuf.
+- Le code est valable 15 minutes, ne sert qu'une fois, et accepte 5 essais. Un compte reçoit au plus 1 code par minute et 5 par jour. Seule l'empreinte du code est gardée en base.
+- « Mot de passe oublié » répond toujours la même chose, que le compte existe ou non.
+- L'e-mail et le rôle ne se modifient pas par `/auth/moi`.
+
+**Notifications.** Le client reçoit un e-mail quand sa commande est enregistrée, payée, expédiée, prête au retrait, récupérée ou annulée. L'API repasse toutes les 30 secondes sur les étapes pas encore notifiées : un e-mail qui échoue est retenté (pendant 24 h), et une panne du service d'envoi ne bloque jamais une commande. Le code de retrait n'est jamais écrit dans un e-mail.
+
+```env
+SMTP_URL="smtps://identifiant:motdepasse@smtp.exemple.com:465"
+EMAIL_EXPEDITEUR="KDExpress <contact@kdexpress.cd>"
+```
+
+Sans `SMTP_URL`, les e-mails sont écrits dans le journal de l'API au lieu d'être envoyés. En production, les deux variables sont obligatoires.
+
+## Tableau de bord (direction)
+
+`GET /admin/tableau-de-bord?du=2026-11-01&au=2026-11-30` : les deux jours sont compris. Sans dates : les 30 derniers jours. Période de 366 jours au plus. Les journées sont celles de Kinshasa.
+
+| Bloc               | Contenu                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `commandes`        | Commandes créées, payées, expédiées, récupérées, annulées pendant la période                                                                     |
+| `encaissements`    | Argent reçu, par moyen et par objet. Les paiements par avoir sont comptés à part                                                                 |
+| `ventes`           | Valeur des commandes passées (articles, transport, frais de service), hors commandes annulées                                                    |
+| `marge`            | Articles achetés à Dubaï : prix payé par le client, prix payé à la boutique, marge                                                               |
+| `avoirs`           | Avoirs crédités et utilisés, et total dû aux clients aujourd'hui                                                                                 |
+| `meilleuresVentes` | Les 5 produits les plus commandés                                                                                                                |
+| `parJour`          | Une ligne par jour (commandes, argent reçu), pour tracer une courbe                                                                              |
+| `enCours`          | Maintenant : commandes par étape, articles à acheter, colis à expédier et en route, retraits en retard, produits à valider, boutiques à vérifier |
+
+## Réglages (direction)
+
+Le taux de change, le transport, les frais de service, la marge et les délais se règlent sans toucher à la base.
+
+| Méthode | Route               | Rôle                                                       |
+| ------- | ------------------- | ---------------------------------------------------------- |
+| GET     | `/admin/parametres` | Tous les réglages, avec leur valeur et ce qu'ils acceptent |
+| PATCH   | `/admin/parametres` | Modifier un ou plusieurs réglages ensemble                 |
+
+```json
+{ "modifications": [{ "code": "taux_change_aed_usd", "valeur": "0.2725" }] }
+```
+
+- Chaque réglage a sa règle (bornes, décimales, choix possibles) : un taux de change de `27` est refusé.
+- Les modifications d'une requête passent toutes, ou aucune.
+- Les réglages doivent rester cohérents : passer le transport au `poids` exige un prix du kilo, à donner dans la même requête.
+- Un changement ne touche que les futures commandes ; les commandes passées gardent leurs montants figés.
+- Chaque changement est écrit dans le journal du serveur (ancienne valeur, nouvelle valeur, auteur).
+
+## Protections
+
+| Protection                   | Ce qu'elle fait                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Limites d'essais             | 120 requêtes par minute (par utilisateur connecté, sinon par adresse). Au-delà : 429                 |
+| Connexion                    | 5 essais par minute pour un même email depuis une même adresse, 20 par adresse tous emails confondus |
+| Inscription                  | 10 par minute et par adresse                                                                         |
+| Codes de retrait             | 20 par minute et par agent                                                                           |
+| En-têtes de sécurité         | Ajoutés à chaque réponse (`helmet`)                                                                  |
+| Sites autorisés (CORS)       | Seuls les sites de `ORIGINES_AUTORISEES` peuvent appeler l'API depuis un navigateur                  |
+| Contrôle de la configuration | Au démarrage : `DATABASE_URL`, `JWT_SECRET` (32 caractères au moins)… L'API refuse de démarrer sinon |
+| Erreurs imprévues            | Le client reçoit « Erreur interne » et une référence ; le détail reste dans le journal du serveur    |
+| Santé                        | `GET /` vérifie aussi la base de données (503 si elle ne répond pas)                                 |
+
+Variables pour la mise en ligne :
+
+```env
+NODE_ENV=production
+ORIGINES_AUTORISEES="https://app.kdexpress.cd,https://admin.kdexpress.cd"
+PROXYS_DE_CONFIANCE=1
+```
+
+- `ORIGINES_AUTORISEES` est obligatoire en production. Sans elle, en développement, tous les sites sont acceptés.
+- `PROXYS_DE_CONFIANCE` : le nombre de proxys de l'hébergeur devant l'API. Sans ce réglage, tous les clients sembleraient venir de la même adresse et se bloqueraient entre eux.
+- Les compteurs sont gardés en mémoire : c'est valable pour un seul serveur.
+
 ## Structure
 
 ```
 prisma/
   schema.prisma       description des 28 tables
-  migrations/         historique de la base (init, contraintes, marge du catalogue)
+  migrations/         historique de la base (init, contraintes, marge du catalogue, compte et notifications)
   seed.ts             données d'essai
   creer-direction.ts  création du premier compte de la direction
 src/
@@ -279,9 +379,12 @@ src/
   expedition/         colis, lots, départ, arrivée, pointage
   retraits/           remise des colis au client
   avis/               avis sur le service
+  emails/             envoi des e-mails, modèles, notifications de commande
+  tableau-de-bord/    chiffres de la direction
+  parametres/         réglages de la direction et leurs règles
   etiquettes/         étiquettes PDF avec QR, pointage par scan
   fichiers/           réception, vérification, compression et rangement des photos
-  commun/             outils partagés (transactions et essais automatiques, rôles)
+  commun/             outils partagés : transactions, rôles, limites d'essais, contrôle du .env, filtre d'erreurs
 ```
 
 ## Commandes utiles
